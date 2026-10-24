@@ -32,40 +32,46 @@
                 </div>
             </section>
 
-            <section class="filter-bar" aria-label="Dashboard filters">
-                <label class="filter-control">
-                    <span>Community</span>
-                    <select id="site-filter" aria-label="Filter by coastal community">
-                        <option value="all">All communities</option>
-                    </select>
-                </label>
-                <label class="filter-control">
-                    <span>From</span>
-                    <input id="start-date" type="date" aria-label="Start date">
-                </label>
-                <label class="filter-control">
-                    <span>To</span>
-                    <input id="end-date" type="date" aria-label="End date">
-                </label>
-                <button class="button button-quiet" id="reset-filters" type="button">Reset filters</button>
-                <p id="filter-summary" class="filter-summary" aria-live="polite"></p>
-            </section>
-
-            <section class="metric-grid" id="metrics" aria-label="Summary indicators"></section>
-
-            <section class="panel map-panel" aria-labelledby="map-title">
-                <div class="panel-heading">
-                    <div>
-                        <p class="eyebrow">SPATIAL EXPLORER</p>
-                        <h2 id="map-title">Community &amp; raster map</h2>
+            <div class="explorer-layout">
+                <section class="panel map-panel" aria-labelledby="map-title">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">SPATIAL EXPLORER</p>
+                            <h2 id="map-title">Community &amp; raster map</h2>
+                        </div>
+                        <span class="panel-note">Illustrative raster · approximate communities</span>
                     </div>
-                    <span class="panel-note">Illustrative raster · approximate communities</span>
-                </div>
-                <div class="map-layout">
                     <div class="map-frame">
                         <svg id="site-map" role="img" aria-label="Illustrative synthetic raster coverage with approximate Ghana coastal community points"></svg>
                     </div>
-                    <div class="map-sidebar">
+                </section>
+
+                <aside class="explorer-sidebar" aria-label="Map controls and data details">
+                    <section class="panel filter-bar" aria-label="Dashboard filters">
+                        <div class="sidebar-section-heading">
+                            <p class="eyebrow">EXPLORE DATA</p>
+                            <button class="button button-quiet" id="reset-filters" type="button">Reset</button>
+                        </div>
+                        <label class="filter-control">
+                            <span>Community</span>
+                            <select id="site-filter" aria-label="Filter by coastal community">
+                                <option value="all">All communities</option>
+                            </select>
+                        </label>
+                        <div class="date-filter-row">
+                            <label class="filter-control">
+                                <span>From</span>
+                                <input id="start-date" type="date" aria-label="Start date">
+                            </label>
+                            <label class="filter-control">
+                                <span>To</span>
+                                <input id="end-date" type="date" aria-label="End date">
+                            </label>
+                        </div>
+                        <p id="filter-summary" class="filter-summary" aria-live="polite"></p>
+                    </section>
+
+                    <section class="panel map-sidebar" aria-label="Map layers and communities">
                         <div class="map-toggles" aria-label="Map layers">
                             <label><input id="raster-toggle" type="checkbox" checked> Raster layer <span>(demo)</span></label>
                             <label><input id="points-toggle" type="checkbox" checked> Community points</label>
@@ -77,36 +83,41 @@
                             <p class="legend-caption">Synthetic values only</p>
                         </div>
                         <div class="site-list" id="site-list" aria-label="Select a coastal community"></div>
-                    </div>
-                </div>
-            </section>
+                    </section>
 
-            <section class="chart-grid" aria-label="Upwelling index charts">
-                <article class="panel chart-panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="eyebrow">PHYSICAL INDICATOR</p>
-                            <h2>CUTI</h2>
-                            <p class="panel-subtitle">Coastal Upwelling Transport Index</p>
-                        </div>
-                        <button class="button button-quiet chart-download" data-chart="cuti" type="button">Download SVG</button>
-                    </div>
-                    <div class="chart-wrap"><svg id="cuti-chart" role="img" aria-label="CUTI demonstration time series"></svg></div>
-                    <p class="unit-note">Synthetic index values · units to be confirmed with the final methodology</p>
-                </article>
-                <article class="panel chart-panel">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="eyebrow">BIOLOGICAL INDICATOR</p>
-                            <h2>BEUTI</h2>
-                            <p class="panel-subtitle">Biologically Effective Upwelling Transport Index</p>
-                        </div>
-                        <button class="button button-quiet chart-download" data-chart="beuti" type="button">Download SVG</button>
-                    </div>
-                    <div class="chart-wrap"><svg id="beuti-chart" role="img" aria-label="BEUTI demonstration time series"></svg></div>
-                    <p class="unit-note">Synthetic index values · units to be confirmed with the final methodology</p>
-                </article>
-            </section>
+                    <section class="panel metric-section" aria-label="Summary indicators">
+                        <p class="eyebrow">SUMMARY</p>
+                        <div class="metric-grid" id="metrics"></div>
+                    </section>
+
+                    <section class="chart-grid" aria-label="Upwelling index charts">
+                        <article class="panel chart-panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">PHYSICAL INDICATOR</p>
+                                    <h2>CUTI</h2>
+                                    <p class="panel-subtitle">Coastal Upwelling Transport Index</p>
+                                </div>
+                                <button class="button button-quiet chart-download" data-chart="cuti" type="button">SVG</button>
+                            </div>
+                            <div class="chart-wrap"><svg id="cuti-chart" role="img" aria-label="CUTI demonstration time series"></svg></div>
+                            <p class="unit-note">Synthetic values · units pending methodology</p>
+                        </article>
+                        <article class="panel chart-panel">
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">BIOLOGICAL INDICATOR</p>
+                                    <h2>BEUTI</h2>
+                                    <p class="panel-subtitle">Biologically Effective Upwelling Transport Index</p>
+                                </div>
+                                <button class="button button-quiet chart-download" data-chart="beuti" type="button">SVG</button>
+                            </div>
+                            <div class="chart-wrap"><svg id="beuti-chart" role="img" aria-label="BEUTI demonstration time series"></svg></div>
+                            <p class="unit-note">Synthetic values · units pending methodology</p>
+                        </article>
+                    </section>
+                </aside>
+            </div>
 
             <section class="panel records-panel" aria-labelledby="records-title">
                 <div class="panel-heading records-heading">

@@ -51,9 +51,10 @@
                         </div>
                         <label class="filter-control community-filter">
                             <span>Community (optional)</span>
-                            <select id="site-filter" aria-label="Filter by coastal community">
-                                <option value="" selected>Select a community</option>
-                            </select>
+                            <details class="community-picker" id="community-picker">
+                                <summary id="community-picker-label">All communities</summary>
+                                <div class="community-options" id="community-options" role="group" aria-label="Choose communities"></div>
+                            </details>
                         </label>
                         <div class="date-filter-row">
                             <label class="filter-control">

@@ -2,7 +2,8 @@
     "use strict";
 
     const demo = window.GHANA_UPWELLING_DEMO;
-    const siteFilter = document.getElementById("site-filter");
+    const communityOptions = document.getElementById("community-options");
+    const communityPickerLabel = document.getElementById("community-picker-label");
     const startInput = document.getElementById("start-date");
     const endInput = document.getElementById("end-date");
     const recordsBody = document.getElementById("records-body");
@@ -17,12 +18,24 @@
     let polygonDraft = [];
     let drawingSnapshot = null;
     let visibleRecordCount = initialRecordCount;
+    let selectedSites = [];
 
+    const allCommunitiesOption = document.createElement("label");
+    allCommunitiesOption.className = "community-option";
+    const allCommunitiesCheckbox = document.createElement("input");
+    allCommunitiesCheckbox.type = "checkbox";
+    allCommunitiesCheckbox.value = "all";
+    allCommunitiesCheckbox.checked = true;
+    allCommunitiesOption.append(allCommunitiesCheckbox, document.createTextNode("All communities"));
+    communityOptions.appendChild(allCommunitiesOption);
     demo.sites.forEach(function (site) {
-        const option = document.createElement("option");
-        option.value = site.name;
-        option.textContent = site.name;
-        siteFilter.appendChild(option);
+        const option = document.createElement("label");
+        option.className = "community-option";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.value = site.name;
+        option.append(checkbox, document.createTextNode(site.name));
+        communityOptions.appendChild(option);
     });
     startInput.min = dates[0];
     startInput.max = dates[dates.length - 1];
@@ -37,9 +50,8 @@
                 return record.date >= startInput.value && record.date <= endInput.value;
             });
         }
-        const site = siteFilter.value;
         return demo.records.filter(function (record) {
-            return (!site || record.site === site) &&
+            return (!selectedSites.length || selectedSites.includes(record.site)) &&
                 record.date >= startInput.value &&
                 record.date <= endInput.value;
         }).sort(function (a, b) {
@@ -204,9 +216,20 @@
         return colors[Math.max(0, Math.min(colors.length - 1, Math.floor(value * colors.length)))];
     }
 
+    function updateCommunityPicker() {
+        allCommunitiesCheckbox.checked = selectedSites.length === 0;
+        communityOptions.querySelectorAll('input[type="checkbox"][value]:not([value="all"])').forEach(function (checkbox) {
+            checkbox.checked = selectedSites.includes(checkbox.value);
+        });
+        communityPickerLabel.textContent = selectedSites.length === 0
+            ? "All communities"
+            : selectedSites.length === 1
+                ? selectedSites[0]
+                : selectedSites.length + " communities";
+    }
+
     function renderMap() {
         const map = document.getElementById("site-map");
-        const selectedSite = siteFilter.value;
         const rasterVisible = document.getElementById("raster-toggle").checked;
         const pointsVisible = document.getElementById("points-toggle").checked;
         const raster = [];
@@ -235,7 +258,7 @@
         }).join("");
         const markers = demo.sites.map(function (site) {
             const point = mapPoint(site);
-            const selected = selectedSite === site.name;
+            const selected = selectedSites.includes(site.name);
             const labelOffset = site.name === "Accra" || site.name === "Keta" ? -12 : 19;
             const labelAnchor = site.name === "Keta" || site.name === "Cape Three Points" ? "end" : "start";
             const labelX = labelAnchor === "end" ? point.x - 10 : point.x + 10;
@@ -281,7 +304,7 @@
                 drawingSnapshot = null;
                 polygonDraft = [];
                 updateDrawingControls();
-                siteFilter.value = marker.dataset.site;
+                selectedSites = [marker.dataset.site];
                 render();
             });
         });
@@ -296,7 +319,7 @@
             const button = document.createElement("button");
             button.className = "site-button";
             button.type = "button";
-            button.setAttribute("aria-pressed", String(selectedSite === site.name));
+            button.setAttribute("aria-pressed", String(selectedSites.includes(site.name)));
             const swatch = document.createElement("span");
             swatch.className = "site-swatch";
             const label = document.createElement("span");
@@ -314,7 +337,7 @@
                 drawingMode = null;
                 polygonDraft = [];
                 updateDrawingControls();
-                siteFilter.value = site.name;
+                selectedSites = [site.name];
                 render();
             });
             siteList.appendChild(button);
@@ -416,7 +439,13 @@
         document.getElementById("records-caption").textContent = "Showing " +
             Math.min(visibleRecordCount, rows.length) + " of " + rows.length +
             " matching records. Exports include all matches.";
-        const location = selection ? selection.name + " · " : "";
+        const location = selection
+            ? selection.name + " · "
+            : selectedSites.length > 1
+                ? selectedSites.length + " communities · "
+                : selectedSites.length === 1
+                    ? selectedSites[0] + " · "
+                    : "";
         document.getElementById("filter-summary").textContent = location + records.length + " demo records · " +
             (records.length ? formatDate(records[0].date) + " – " + formatDate(records[records.length - 1].date) : "no matching dates");
     }
@@ -452,6 +481,7 @@
             ? (selection.type === "point" ? "Point sample records" : "Polygon average records")
             : "Raw demonstration records";
         document.getElementById("map-variable").value = selectedVariable;
+        updateCommunityPicker();
         document.querySelectorAll(".chart-panel").forEach(function (panel) {
             panel.hidden = panel.dataset.variable !== selectedVariable;
         });
@@ -539,17 +569,25 @@
         drawingSnapshot = null;
         drawingMode = null;
         polygonDraft = [];
-        siteFilter.value = "";
+        selectedSites = [];
         startInput.value = dates[0];
         endInput.value = dates[dates.length - 1];
         updateDrawingControls();
         render();
     });
-    siteFilter.addEventListener("change", function () {
+    communityOptions.addEventListener("change", function (event) {
+        if (event.target.type !== "checkbox") return;
         selection = null;
         drawingSnapshot = null;
         drawingMode = null;
         polygonDraft = [];
+        if (event.target.value === "all") {
+            selectedSites = [];
+        } else if (event.target.checked) {
+            selectedSites = selectedSites.concat(event.target.value);
+        } else {
+            selectedSites = selectedSites.filter(function (site) { return site !== event.target.value; });
+        }
         updateDrawingControls();
         render();
     });
@@ -567,18 +605,18 @@
             [mapView.x, mapView.y, mapView.width, mapView.height].join(" "));
     });
     document.getElementById("draw-point").addEventListener("click", function () {
-        drawingSnapshot = drawingSnapshot || { selection: selection, site: siteFilter.value };
+        drawingSnapshot = drawingSnapshot || { selection: selection, sites: selectedSites.slice() };
         selection = null;
-        siteFilter.value = "";
+        selectedSites = [];
         drawingMode = "point";
         polygonDraft = [];
         updateDrawingControls();
         render();
     });
     document.getElementById("draw-polygon").addEventListener("click", function () {
-        drawingSnapshot = drawingSnapshot || { selection: selection, site: siteFilter.value };
+        drawingSnapshot = drawingSnapshot || { selection: selection, sites: selectedSites.slice() };
         selection = null;
-        siteFilter.value = "";
+        selectedSites = [];
         drawingMode = "polygon";
         polygonDraft = [];
         updateDrawingControls();
@@ -600,7 +638,7 @@
     document.getElementById("cancel-drawing").addEventListener("click", function () {
         if (drawingSnapshot) {
             selection = drawingSnapshot.selection;
-            siteFilter.value = drawingSnapshot.site;
+            selectedSites = drawingSnapshot.sites;
         }
         drawingSnapshot = null;
         drawingMode = null;

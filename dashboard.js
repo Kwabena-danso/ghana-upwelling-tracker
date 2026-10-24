@@ -9,6 +9,8 @@
     const emptyState = document.getElementById("empty-state");
     const dates = Array.from(new Set(demo.records.map(function (record) { return record.date; }))).sort();
     const initialRecordCount = 5;
+    const defaultMapView = { x: 0, y: 0, width: 700, height: 270 };
+    let mapView = { x: defaultMapView.x, y: defaultMapView.y, width: defaultMapView.width, height: defaultMapView.height };
     let selectedVariable = "cuti";
     let selection = null;
     let drawingMode = null;
@@ -177,14 +179,19 @@
         return { x: x, y: y };
     }
 
-    function mapCoordinate(event) {
+    function mapViewCoordinate(event) {
         const map = document.getElementById("site-map");
-        const rect = map.getBoundingClientRect();
-        const scale = Math.min(rect.width / 700, rect.height / 270);
-        const offsetX = (rect.width - 700 * scale) / 2;
-        const offsetY = (rect.height - 270 * scale) / 2;
-        const x = (event.clientX - rect.left - offsetX) / scale;
-        const y = (event.clientY - rect.top - offsetY) / scale;
+        const point = map.createSVGPoint();
+        point.x = event.clientX;
+        point.y = event.clientY;
+        const coordinate = point.matrixTransform(map.getScreenCTM().inverse());
+        return { x: coordinate.x, y: coordinate.y };
+    }
+
+    function mapCoordinate(event) {
+        const point = mapViewCoordinate(event);
+        const x = point.x;
+        const y = point.y;
         if (x < 60 || x > 640 || y < 34 || y > 226) return null;
         return {
             longitude: demo.raster.minLongitude + ((x - 60) / 580) * (demo.raster.maxLongitude - demo.raster.minLongitude),
@@ -256,7 +263,7 @@
                 const point = mapPoint(coordinate);
                 return '<circle class="selection-vertex" cx="' + point.x.toFixed(1) + '" cy="' + point.y.toFixed(1) + '" r="4"></circle>';
             }).join("") + '</g>' : "";
-        map.setAttribute("viewBox", "0 0 700 270");
+        map.setAttribute("viewBox", [mapView.x, mapView.y, mapView.width, mapView.height].join(" "));
         map.classList.toggle("map-drawing", Boolean(drawingMode));
         document.getElementById("raster-legend-title").textContent = selectedVariable.toUpperCase() + " raster · demo";
         document.querySelector(".community-filter").hidden = Boolean(selection);
@@ -456,6 +463,31 @@
         renderTable(records);
     }
 
+    function zoomMap(factor, anchor) {
+        const currentZoom = defaultMapView.width / mapView.width;
+        const nextZoom = Math.max(1, Math.min(6, currentZoom * factor));
+        if (nextZoom === 1) {
+            mapView = { x: defaultMapView.x, y: defaultMapView.y, width: defaultMapView.width, height: defaultMapView.height };
+            document.getElementById("site-map").setAttribute("viewBox",
+                [mapView.x, mapView.y, mapView.width, mapView.height].join(" "));
+            return;
+        }
+        const appliedFactor = nextZoom / currentZoom;
+        const focus = anchor || { x: mapView.x + mapView.width / 2, y: mapView.y + mapView.height / 2 };
+        const width = defaultMapView.width / nextZoom;
+        const height = defaultMapView.height / nextZoom;
+        mapView = {
+            x: Math.max(0, Math.min(defaultMapView.width - width,
+                focus.x - (focus.x - mapView.x) / appliedFactor)),
+            y: Math.max(0, Math.min(defaultMapView.height - height,
+                focus.y - (focus.y - mapView.y) / appliedFactor)),
+            width: width,
+            height: height
+        };
+        document.getElementById("site-map").setAttribute("viewBox",
+            [mapView.x, mapView.y, mapView.width, mapView.height].join(" "));
+    }
+
     function download(filename, content, mimeType) {
         const link = document.createElement("a");
         const url = URL.createObjectURL(new Blob([content], { type: mimeType }));
@@ -492,10 +524,10 @@
             clone.setAttribute("height", "470");
             download(button.dataset.chart + "-demo-chart.svg", new XMLSerializer().serializeToString(clone), "image/svg+xml;charset=utf-8");
         });
-        document.getElementById("map-variable").addEventListener("change", function (event) {
-            selectedVariable = event.target.value;
-            render();
-        });
+    });
+    document.getElementById("map-variable").addEventListener("change", function (event) {
+        selectedVariable = event.target.value;
+        render();
     });
     document.getElementById("export-csv").addEventListener("click", function () { exportRecords("csv"); });
     document.getElementById("export-json").addEventListener("click", function () { exportRecords("json"); });
@@ -527,6 +559,13 @@
     });
     [document.getElementById("raster-toggle"), document.getElementById("points-toggle")].forEach(function (input) {
         input.addEventListener("change", renderMap);
+    });
+    document.getElementById("zoom-in").addEventListener("click", function () { zoomMap(1.4); });
+    document.getElementById("zoom-out").addEventListener("click", function () { zoomMap(1 / 1.4); });
+    document.getElementById("zoom-reset").addEventListener("click", function () {
+        mapView = { x: defaultMapView.x, y: defaultMapView.y, width: defaultMapView.width, height: defaultMapView.height };
+        document.getElementById("site-map").setAttribute("viewBox",
+            [mapView.x, mapView.y, mapView.width, mapView.height].join(" "));
     });
     document.getElementById("draw-point").addEventListener("click", function () {
         drawingSnapshot = drawingSnapshot || { selection: selection, site: siteFilter.value };
@@ -576,6 +615,11 @@
         updateDrawingControls();
         render();
     });
+    document.getElementById("site-map").addEventListener("wheel", function (event) {
+        if (event.target.closest(".map-variable-control, .map-zoom-control")) return;
+        event.preventDefault();
+        zoomMap(event.deltaY < 0 ? 1.2 : 1 / 1.2, mapViewCoordinate(event));
+    }, { passive: false });
     document.getElementById("site-map").addEventListener("click", function (event) {
         if (!drawingMode) return;
         const coordinate = mapCoordinate(event);

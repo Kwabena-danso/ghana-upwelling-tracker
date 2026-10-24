@@ -24,7 +24,6 @@
                 <section class="panel map-panel" aria-label="Interactive map">
                     <div class="map-frame">
                         <svg id="site-map" role="img" aria-label="Synthetic Ghana coastal data map with community locations"></svg>
-                        <p class="map-eyebrow">SPATIAL EXPLORER</p>
                         <div class="map-variable-control">
                             <label for="map-variable">Variable</label>
                             <select id="map-variable" aria-label="Select map variable">
@@ -35,6 +34,11 @@
                                 <option value="sol" disabled>SOL · coming soon</option>
                                 <option value="no3" disabled>NO3 · coming soon</option>
                             </select>
+                        </div>
+                        <div class="map-zoom-control" role="group" aria-label="Map zoom controls">
+                            <button class="map-zoom-button" id="zoom-in" type="button" aria-label="Zoom in">+</button>
+                            <button class="map-zoom-button" id="zoom-out" type="button" aria-label="Zoom out">-</button>
+                            <button class="map-zoom-reset" id="zoom-reset" type="button">Reset</button>
                         </div>
                     </div>
                 </section>

@@ -21,7 +21,7 @@
     let selectedSites = [];
 
     const allCommunitiesOption = document.createElement("label");
-    allCommunitiesOption.className = "community-option";
+    allCommunitiesOption.className = "community-option community-option-all";
     const allCommunitiesCheckbox = document.createElement("input");
     allCommunitiesCheckbox.type = "checkbox";
     allCommunitiesCheckbox.value = "all";

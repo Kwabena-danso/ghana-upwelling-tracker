@@ -63,9 +63,9 @@ button { cursor: pointer; }
     border-radius: 10px;
     background: var(--teal);
     color: #fff;
-    font-family: Georgia, serif;
-    font-size: 19px;
-    font-weight: 700;
+    font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+    font-size: 21px;
+    line-height: 1;
 }
 
 .topbar-nav { display: flex; align-items: center; gap: clamp(14px, 2.4vw, 30px); }

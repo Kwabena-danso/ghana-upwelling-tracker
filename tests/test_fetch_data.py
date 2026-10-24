@@ -58,9 +58,9 @@ class FetchDataTests(unittest.TestCase):
                     {
                         "datasets": [
                             {
-                                "name": "physics",
+                                "name": "sea_surface_height",
                                 "dataset_id": "cmems_mod_glo_phy_my_0.083deg_P1D-m",
-                                "variables": ["mlotst", "zos", "thetao", "so"],
+                                "variables": ["mlotst", "zos"],
                             },
                             {"name": "wind", "dataset_id": None, "variables": []},
                             {"name": "nitrate", "dataset_id": None, "variables": []},
@@ -76,9 +76,9 @@ class FetchDataTests(unittest.TestCase):
             requests,
             [
                 DatasetRequest(
-                    "physics",
+                    "sea_surface_height",
                     "cmems_mod_glo_phy_my_0.083deg_P1D-m",
-                    ("mlotst", "zos", "thetao", "so"),
+                    ("mlotst", "zos"),
                 )
             ],
         )
@@ -95,14 +95,24 @@ class FetchDataTests(unittest.TestCase):
                     ("eastward_wind", "northward_wind"),
                 ),
                 DatasetRequest(
-                    "physics",
+                    "sea_surface_height",
                     "cmems_mod_glo_phy_my_0.083deg_P1D-m",
-                    ("mlotst", "zos", "thetao", "so"),
+                    ("mlotst", "zos"),
                 ),
                 DatasetRequest(
                     "nitrate",
                     "cmems_mod_glo_bgc_my_0.25deg_P1D-m",
                     ("no3", "chl", "po4"),
+                ),
+                DatasetRequest(
+                    "sea_surface_temperature",
+                    "cmems_mod_glo_phy_my_0.083deg_P1D-m",
+                    ("thetao",),
+                ),
+                DatasetRequest(
+                    "salinity",
+                    "cmems_mod_glo_phy_my_0.083deg_P1D-m",
+                    ("so",),
                 ),
             ],
         )

@@ -72,6 +72,19 @@
                     </section>
 
                     <section class="panel map-sidebar" aria-label="Map layers and communities">
+                        <div class="draw-tools" role="group" aria-label="Draw a data selection on the map">
+                            <p class="site-list-label">Select an area on the map</p>
+                            <div class="draw-buttons">
+                                <button class="button button-quiet draw-button" id="draw-point" type="button" aria-pressed="false">Point</button>
+                                <button class="button button-quiet draw-button" id="draw-polygon" type="button" aria-pressed="false">Polygon</button>
+                            </div>
+                            <p id="draw-instructions" class="draw-instructions" aria-live="polite">Choose a point or draw a polygon to sample the raster.</p>
+                            <div class="draw-actions">
+                                <button class="text-button" id="finish-polygon" type="button" hidden>Finish polygon</button>
+                                <button class="text-button" id="clear-selection" type="button" hidden>Clear selection</button>
+                                <button class="text-button" id="cancel-drawing" type="button" hidden>Cancel</button>
+                            </div>
+                        </div>
                         <div class="map-toggles" aria-label="Map layers">
                             <label><input id="raster-toggle" type="checkbox" checked> Raster layer <span>(demo)</span></label>
                             <label><input id="points-toggle" type="checkbox" checked> Community points</label>

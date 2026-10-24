@@ -185,6 +185,21 @@ h2 { margin-bottom: 4px; color: var(--navy); font-size: 18px; letter-spacing: -.
 .site-label { fill: #36545c; font-size: 11px; font-weight: 700; pointer-events: none; }
 .explorer-sidebar { display: grid; max-height: calc(100vh - 104px); align-content: start; gap: 12px; overflow-y: auto; padding-right: 3px; scrollbar-color: #c8d8d6 transparent; scrollbar-width: thin; }
 .map-sidebar { display: grid; align-content: start; gap: 11px; padding: 13px; }
+.draw-tools { padding-bottom: 11px; border-bottom: 1px solid var(--line); }
+.draw-tools .site-list-label { margin-bottom: 8px; }
+.draw-buttons, .draw-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.draw-button { flex: 1; }
+.draw-button[aria-pressed="true"] { border-color: #8bc9c1; background: #eaf7f5; color: var(--teal-dark); }
+.draw-instructions { margin: 8px 0 5px; color: var(--muted); font-size: 9px; line-height: 1.45; }
+.text-button { padding: 3px 0; border: 0; background: transparent; color: var(--teal-dark); font-size: 9px; font-weight: 750; }
+.text-button:hover { text-decoration: underline; }
+.draw-actions [hidden] { display: none; }
+.map-drawing { cursor: crosshair; touch-action: none; }
+.map-drawing .map-marker { pointer-events: none; }
+.selection-point { fill: #f08a62; stroke: #fff; stroke-width: 3; }
+.selection-area { fill: rgba(240, 138, 98, .3); stroke: #ce6247; stroke-width: 3; stroke-dasharray: 7 5; }
+.selection-vertex { fill: #fff; stroke: #ce6247; stroke-width: 3; }
+.selection-outline { fill: rgba(240, 138, 98, .18); stroke: #ce6247; stroke-width: 3; stroke-dasharray: 7 5; }
 .map-toggles { display: grid; gap: 8px; padding-bottom: 11px; border-bottom: 1px solid var(--line); }
 .map-toggles label { display: flex; align-items: center; gap: 6px; color: var(--ink); font-size: 10px; font-weight: 700; }
 .map-toggles input { accent-color: var(--teal); }

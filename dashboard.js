@@ -7,7 +7,11 @@
     const endInput = document.getElementById("end-date");
     const recordsBody = document.getElementById("records-body");
     const emptyState = document.getElementById("empty-state");
-    const dates = demo.records.map(function (record) { return record.date; }).sort();
+    const dates = Array.from(new Set(demo.records.map(function (record) { return record.date; }))).sort();
+    let selection = null;
+    let drawingMode = null;
+    let polygonDraft = [];
+    let drawingSnapshot = null;
 
     demo.sites.forEach(function (site) {
         const option = document.createElement("option");
@@ -23,6 +27,11 @@
     endInput.value = dates[dates.length - 1];
 
     function selectedRecords() {
+        if (selection) {
+            return sampleSelection(selection).filter(function (record) {
+                return record.date >= startInput.value && record.date <= endInput.value;
+            });
+        }
         const site = siteFilter.value;
         return demo.records.filter(function (record) {
             return (site === "all" || record.site === site) &&
@@ -30,6 +39,80 @@
                 record.date <= endInput.value;
         }).sort(function (a, b) {
             return a.date.localeCompare(b.date) || a.site.localeCompare(b.site);
+        });
+    }
+
+    function sampleCell(longitude, latitude, dateIndex) {
+        const longitudePosition = (longitude - demo.raster.minLongitude) / (demo.raster.maxLongitude - demo.raster.minLongitude);
+        const latitudePosition = (latitude - demo.raster.minLatitude) / (demo.raster.maxLatitude - demo.raster.minLatitude);
+        const phase = dateIndex * 0.61 + longitudePosition * 1.8 + latitudePosition * 0.9;
+        return {
+            cuti: Number((0.38 + 0.23 * Math.sin(phase) + longitudePosition * 0.08).toFixed(3)),
+            beuti: Number((1.7 + 0.82 * Math.cos(phase * 0.78) + latitudePosition * 0.5).toFixed(3))
+        };
+    }
+
+    function pointInPolygon(point, polygon) {
+        let inside = false;
+        for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i, i += 1) {
+            const current = polygon[i];
+            const previous = polygon[j];
+            const crossesLatitude = (current.latitude > point.latitude) !== (previous.latitude > point.latitude);
+            const intersectionLongitude = (previous.longitude - current.longitude) *
+                (point.latitude - current.latitude) / (previous.latitude - current.latitude) + current.longitude;
+            if (crossesLatitude && point.longitude < intersectionLongitude) inside = !inside;
+        }
+        return inside;
+    }
+
+    function sampleSelection(currentSelection) {
+        const coordinates = currentSelection.coordinates;
+        const center = coordinates.reduce(function (result, coordinate) {
+            result.latitude += coordinate.latitude / coordinates.length;
+            result.longitude += coordinate.longitude / coordinates.length;
+            return result;
+        }, { latitude: 0, longitude: 0 });
+        const rasterCells = [];
+        const cellWidth = (demo.raster.maxLongitude - demo.raster.minLongitude) / demo.raster.columns;
+        const cellHeight = (demo.raster.maxLatitude - demo.raster.minLatitude) / demo.raster.rows;
+
+        if (currentSelection.type === "point") {
+            const column = Math.max(0, Math.min(demo.raster.columns - 1,
+                Math.floor((center.longitude - demo.raster.minLongitude) / cellWidth)));
+            const row = Math.max(0, Math.min(demo.raster.rows - 1,
+                Math.floor((center.latitude - demo.raster.minLatitude) / cellHeight)));
+            rasterCells.push({
+                latitude: demo.raster.minLatitude + (row + 0.5) * cellHeight,
+                longitude: demo.raster.minLongitude + (column + 0.5) * cellWidth
+            });
+        } else {
+            for (let row = 0; row < demo.raster.rows; row += 1) {
+                for (let column = 0; column < demo.raster.columns; column += 1) {
+                    const cell = {
+                        latitude: demo.raster.minLatitude + (row + 0.5) * cellHeight,
+                        longitude: demo.raster.minLongitude + (column + 0.5) * cellWidth
+                    };
+                    if (pointInPolygon(cell, coordinates)) rasterCells.push(cell);
+                }
+            }
+            if (!rasterCells.length) rasterCells.push(center);
+        }
+
+        return dates.filter(function (date) {
+            return date >= startInput.value && date <= endInput.value;
+        }).map(function (date) {
+            const dateIndex = dates.indexOf(date);
+            const values = rasterCells.map(function (cell) {
+                return sampleCell(cell.longitude, cell.latitude, dateIndex);
+            });
+            return {
+                date: date,
+                site: currentSelection.name,
+                latitude: Number(center.latitude.toFixed(3)),
+                longitude: Number(center.longitude.toFixed(3)),
+                cuti: Number((values.reduce(function (total, value) { return total + value.cuti; }, 0) / values.length).toFixed(3)),
+                beuti: Number((values.reduce(function (total, value) { return total + value.beuti; }, 0) / values.length).toFixed(3))
+            };
         });
     }
 
@@ -90,6 +173,21 @@
         return { x: x, y: y };
     }
 
+    function mapCoordinate(event) {
+        const map = document.getElementById("site-map");
+        const rect = map.getBoundingClientRect();
+        const scale = Math.min(rect.width / 700, rect.height / 270);
+        const offsetX = (rect.width - 700 * scale) / 2;
+        const offsetY = (rect.height - 270 * scale) / 2;
+        const x = (event.clientX - rect.left - offsetX) / scale;
+        const y = (event.clientY - rect.top - offsetY) / scale;
+        if (x < 60 || x > 640 || y < 34 || y > 226) return null;
+        return {
+            longitude: demo.raster.minLongitude + ((x - 60) / 580) * (demo.raster.maxLongitude - demo.raster.minLongitude),
+            latitude: demo.raster.minLatitude + ((226 - y) / 192) * (demo.raster.maxLatitude - demo.raster.minLatitude)
+        };
+    }
+
     function rasterColor(value) {
         const colors = ["#d6eee9", "#99d5cc", "#54b5a9", "#268e88", "#176673"];
         return colors[Math.min(colors.length - 1, Math.floor(value * colors.length))];
@@ -126,15 +224,42 @@
                 '<circle class="site-dot' + (selected ? " is-selected" : "") + '" cx="' + point.x.toFixed(1) + '" cy="' + point.y.toFixed(1) + '" r="' + (selected ? 8 : 6) + '"><title>' + site.name + ' · approximate demo community</title></circle>' +
                 '<text class="site-label" x="' + labelX.toFixed(1) + '" y="' + (point.y + labelOffset).toFixed(1) + '" text-anchor="' + labelAnchor + '">' + site.name + '</text></g>';
         }).join("");
+        const selectedFeature = selection ? (selection.type === "point"
+            ? '<circle class="selection-point" cx="' + mapPoint(selection.coordinates[0]).x.toFixed(1) + '" cy="' + mapPoint(selection.coordinates[0]).y.toFixed(1) + '" r="9"><title>Selected demo point</title></circle>'
+            : '<polygon class="selection-area" points="' + selection.coordinates.map(function (coordinate) {
+                const point = mapPoint(coordinate);
+                return point.x.toFixed(1) + "," + point.y.toFixed(1);
+            }).join(" ") + '"><title>Selected demo polygon</title></polygon>') : "";
+        const draftFeature = polygonDraft.length ? '<g class="polygon-draft">' +
+            (polygonDraft.length >= 3
+                ? '<polygon class="selection-outline" points="' + polygonDraft.map(function (coordinate) {
+                    const point = mapPoint(coordinate);
+                    return point.x.toFixed(1) + "," + point.y.toFixed(1);
+                }).join(" ") + '"></polygon>'
+                : '<polyline class="selection-outline" points="' + polygonDraft.map(function (coordinate) {
+                    const point = mapPoint(coordinate);
+                    return point.x.toFixed(1) + "," + point.y.toFixed(1);
+                }).join(" ") + '"></polyline>') +
+            polygonDraft.map(function (coordinate) {
+                const point = mapPoint(coordinate);
+                return '<circle class="selection-vertex" cx="' + point.x.toFixed(1) + '" cy="' + point.y.toFixed(1) + '" r="4"></circle>';
+            }).join("") + '</g>' : "";
         map.setAttribute("viewBox", "0 0 700 270");
+        map.classList.toggle("map-drawing", Boolean(drawingMode));
         map.innerHTML = '<rect x="0" y="0" width="700" height="270" fill="#edf6f6"></rect>' +
             (rasterVisible ? '<g class="raster-layer" aria-label="Synthetic demo raster covering the displayed coordinate extent">' + raster.join("") + '</g>' : "") +
             '<g class="map-grid">' + horizontalLines + verticalLines + '</g>' +
             '<text class="map-axis-label" x="60" y="250">3°W</text><text class="map-axis-label" x="193" y="250">2°W</text><text class="map-axis-label" x="332" y="250">1°W</text><text class="map-axis-label" x="482" y="250">0°</text><text class="map-axis-label" x="618" y="250">1°E</text>' +
             '<text class="map-axis-label" x="15" y="39">6.0°N</text><text class="map-axis-label" x="15" y="104">5.5°N</text><text class="map-axis-label" x="15" y="169">5.0°N</text><text class="map-axis-label" x="15" y="229">4.5°N</text>' +
-            (pointsVisible ? '<g class="points-layer">' + markers + '</g>' : "");
+            (pointsVisible ? '<g class="points-layer">' + markers + '</g>' : "") +
+            selectedFeature + draftFeature;
         map.querySelectorAll(".map-marker").forEach(function (marker) {
             marker.addEventListener("click", function () {
+                if (drawingMode) return;
+                selection = null;
+                drawingSnapshot = null;
+                polygonDraft = [];
+                updateDrawingControls();
                 siteFilter.value = marker.dataset.site;
                 render();
             });
@@ -163,6 +288,11 @@
             label.appendChild(coordinates);
             button.append(swatch, label);
             button.addEventListener("click", function () {
+                selection = null;
+                drawingSnapshot = null;
+                drawingMode = null;
+                polygonDraft = [];
+                updateDrawingControls();
                 siteFilter.value = site.name;
                 render();
             });
@@ -258,12 +388,40 @@
             recordsBody.appendChild(row);
         });
         emptyState.hidden = rows.length > 0;
-        document.getElementById("filter-summary").textContent = records.length + " demo records · " +
+        const location = selection ? selection.name + " · " : "";
+        document.getElementById("filter-summary").textContent = location + records.length + " demo records · " +
             (records.length ? formatDate(records[0].date) + " – " + formatDate(records[records.length - 1].date) : "no matching dates");
+    }
+
+    function updateDrawingControls() {
+        const pointButton = document.getElementById("draw-point");
+        const polygonButton = document.getElementById("draw-polygon");
+        const finishButton = document.getElementById("finish-polygon");
+        const cancelButton = document.getElementById("cancel-drawing");
+        const clearButton = document.getElementById("clear-selection");
+        const instructions = document.getElementById("draw-instructions");
+        pointButton.setAttribute("aria-pressed", String(drawingMode === "point"));
+        polygonButton.setAttribute("aria-pressed", String(drawingMode === "polygon"));
+        finishButton.hidden = drawingMode !== "polygon" || polygonDraft.length < 3;
+        cancelButton.hidden = !drawingMode;
+        clearButton.hidden = !selection;
+        if (drawingMode === "point") {
+            instructions.textContent = "Click inside the raster coverage to sample the nearest demo cell.";
+        } else if (drawingMode === "polygon") {
+            instructions.textContent = "Click to add polygon vertices, then finish the polygon to average covered demo cells. " +
+                polygonDraft.length + " point" + (polygonDraft.length === 1 ? "" : "s") + " added.";
+        } else if (selection) {
+            instructions.textContent = selection.name + " selected. Charts and records show its demo raster sample.";
+        } else {
+            instructions.textContent = "Choose a point or draw a polygon to sample the raster.";
+        }
     }
 
     function render() {
         const records = selectedRecords();
+        document.getElementById("records-title").textContent = selection
+            ? (selection.type === "point" ? "Point sample records" : "Polygon average records")
+            : "Raw demonstration records";
         renderMetrics(records);
         renderMap();
         renderChart("cuti-chart", records, "cuti", "#078c83", "CUTI demo units");
@@ -311,17 +469,101 @@
     document.getElementById("export-csv").addEventListener("click", function () { exportRecords("csv"); });
     document.getElementById("export-json").addEventListener("click", function () { exportRecords("json"); });
     document.getElementById("reset-filters").addEventListener("click", function () {
+        selection = null;
+        drawingSnapshot = null;
+        drawingMode = null;
+        polygonDraft = [];
         siteFilter.value = "all";
         startInput.value = dates[0];
         endInput.value = dates[dates.length - 1];
+        updateDrawingControls();
         render();
     });
-    [siteFilter, startInput, endInput].forEach(function (input) {
+    siteFilter.addEventListener("change", function () {
+        selection = null;
+        drawingSnapshot = null;
+        drawingMode = null;
+        polygonDraft = [];
+        updateDrawingControls();
+        render();
+    });
+    [startInput, endInput].forEach(function (input) {
         input.addEventListener("change", render);
     });
     [document.getElementById("raster-toggle"), document.getElementById("points-toggle")].forEach(function (input) {
         input.addEventListener("change", renderMap);
     });
+    document.getElementById("draw-point").addEventListener("click", function () {
+        drawingSnapshot = drawingSnapshot || { selection: selection, site: siteFilter.value };
+        selection = null;
+        siteFilter.value = "all";
+        drawingMode = "point";
+        polygonDraft = [];
+        updateDrawingControls();
+        render();
+    });
+    document.getElementById("draw-polygon").addEventListener("click", function () {
+        drawingSnapshot = drawingSnapshot || { selection: selection, site: siteFilter.value };
+        selection = null;
+        siteFilter.value = "all";
+        drawingMode = "polygon";
+        polygonDraft = [];
+        updateDrawingControls();
+        render();
+    });
+    document.getElementById("finish-polygon").addEventListener("click", function () {
+        if (drawingMode !== "polygon" || polygonDraft.length < 3) return;
+        selection = {
+            type: "polygon",
+            coordinates: polygonDraft.slice(),
+            name: "Drawn polygon"
+        };
+        drawingSnapshot = null;
+        drawingMode = null;
+        polygonDraft = [];
+        updateDrawingControls();
+        render();
+    });
+    document.getElementById("cancel-drawing").addEventListener("click", function () {
+        if (drawingSnapshot) {
+            selection = drawingSnapshot.selection;
+            siteFilter.value = drawingSnapshot.site;
+        }
+        drawingSnapshot = null;
+        drawingMode = null;
+        polygonDraft = [];
+        updateDrawingControls();
+        render();
+    });
+    document.getElementById("clear-selection").addEventListener("click", function () {
+        selection = null;
+        drawingSnapshot = null;
+        updateDrawingControls();
+        render();
+    });
+    document.getElementById("site-map").addEventListener("click", function (event) {
+        if (!drawingMode) return;
+        const coordinate = mapCoordinate(event);
+        if (!coordinate) {
+            document.getElementById("draw-instructions").textContent = "Choose a location inside the displayed raster coverage.";
+            return;
+        }
+        if (drawingMode === "point") {
+            selection = {
+                type: "point",
+                coordinates: [coordinate],
+                name: "Drawn point"
+            };
+            drawingSnapshot = null;
+            drawingMode = null;
+            updateDrawingControls();
+        } else {
+            polygonDraft.push(coordinate);
+            updateDrawingControls();
+        }
+        render();
+    });
 
+    updateDrawingControls();
     render();
 }());

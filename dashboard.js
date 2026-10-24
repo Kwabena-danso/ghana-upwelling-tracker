@@ -266,8 +266,6 @@
         map.setAttribute("viewBox", [mapView.x, mapView.y, mapView.width, mapView.height].join(" "));
         map.classList.toggle("map-drawing", Boolean(drawingMode));
         document.getElementById("raster-legend-title").textContent = selectedVariable.toUpperCase() + " raster · demo";
-        document.querySelector(".community-filter").hidden = Boolean(selection);
-        document.getElementById("site-list").hidden = Boolean(selection);
         map.innerHTML = '<rect x="0" y="0" width="700" height="270" fill="#edf6f6"></rect>' +
             (rasterVisible ? '<g class="raster-layer" aria-label="Synthetic demo raster covering the displayed coordinate extent">' + raster.join("") + '</g>' : "") +
             '<g class="map-grid">' + horizontalLines + verticalLines + '</g>' +

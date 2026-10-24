@@ -28,15 +28,15 @@
                 </div>
                 <div class="demo-notice" role="note">
                     <span class="notice-icon" aria-hidden="true">i</span>
-                    <p><strong>Demonstration only.</strong> Values below are synthetic examples, not Copernicus observations or calculated CUTI/BEUTI. The site map shows approximate demo points only; no EEZ boundary is displayed.</p>
+                    <p><strong>Demonstration only.</strong> Values below are synthetic examples, not Copernicus observations or calculated CUTI/BEUTI. The map's raster and community points are illustrative only; no EEZ boundary is displayed.</p>
                 </div>
             </section>
 
             <section class="filter-bar" aria-label="Dashboard filters">
                 <label class="filter-control">
-                    <span>Coastal site</span>
-                    <select id="site-filter" aria-label="Filter by coastal site">
-                        <option value="all">All sites</option>
+                    <span>Community</span>
+                    <select id="site-filter" aria-label="Filter by coastal community">
+                        <option value="all">All communities</option>
                     </select>
                 </label>
                 <label class="filter-control">
@@ -57,15 +57,27 @@
                 <div class="panel-heading">
                     <div>
                         <p class="eyebrow">SPATIAL EXPLORER</p>
-                        <h2 id="map-title">Coastal site map</h2>
+                        <h2 id="map-title">Community &amp; raster map</h2>
                     </div>
-                    <span class="panel-note">Schematic coordinates · demo locations</span>
+                    <span class="panel-note">Illustrative raster · approximate communities</span>
                 </div>
                 <div class="map-layout">
                     <div class="map-frame">
-                        <svg id="site-map" role="img" aria-label="Schematic coordinate map of demo coastal locations in Ghana"></svg>
+                        <svg id="site-map" role="img" aria-label="Illustrative synthetic raster coverage with approximate Ghana coastal community points"></svg>
                     </div>
-                    <div class="site-list" id="site-list" aria-label="Select a coastal site"></div>
+                    <div class="map-sidebar">
+                        <div class="map-toggles" aria-label="Map layers">
+                            <label><input id="raster-toggle" type="checkbox" checked> Raster layer <span>(demo)</span></label>
+                            <label><input id="points-toggle" type="checkbox" checked> Community points</label>
+                        </div>
+                        <div class="raster-legend" id="raster-legend">
+                            <p class="site-list-label">Illustrative raster</p>
+                            <div class="raster-gradient" aria-hidden="true"></div>
+                            <div class="legend-labels"><span>Lower</span><span>Higher</span></div>
+                            <p class="legend-caption">Synthetic values only</p>
+                        </div>
+                        <div class="site-list" id="site-list" aria-label="Select a coastal community"></div>
+                    </div>
                 </div>
             </section>
 
@@ -111,7 +123,7 @@
                 <div class="table-scroll">
                     <table>
                         <thead>
-                            <tr><th scope="col">Date</th><th scope="col">Coastal site</th><th scope="col">Latitude</th><th scope="col">Longitude</th><th scope="col">CUTI <span>(demo)</span></th><th scope="col">BEUTI <span>(demo)</span></th></tr>
+                            <tr><th scope="col">Date</th><th scope="col">Community</th><th scope="col">Latitude</th><th scope="col">Longitude</th><th scope="col">CUTI <span>(demo)</span></th><th scope="col">BEUTI <span>(demo)</span></th></tr>
                         </thead>
                         <tbody id="records-body"></tbody>
                     </table>

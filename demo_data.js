@@ -2,7 +2,9 @@
     const sites = [
         { name: "Cape Three Points", latitude: 4.74, longitude: -2.08 },
         { name: "Takoradi", latitude: 4.89, longitude: -1.76 },
-        { name: "Accra", latitude: 5.55, longitude: -0.19 }
+        { name: "Winneba", latitude: 5.35, longitude: -0.62 },
+        { name: "Accra", latitude: 5.55, longitude: -0.19 },
+        { name: "Keta", latitude: 5.92, longitude: 0.99 }
     ];
     const dates = [
         "2026-10-11", "2026-10-12", "2026-10-13", "2026-10-14",
@@ -13,6 +15,14 @@
 
     window.GHANA_UPWELLING_DEMO = {
         sites: sites,
+        raster: {
+            minLongitude: -3,
+            maxLongitude: 1.2,
+            minLatitude: 4.5,
+            maxLatitude: 6,
+            columns: 16,
+            rows: 8
+        },
         records: sites.flatMap(function (site, siteIndex) {
             return dates.map(function (date, dayIndex) {
                 const phase = dayIndex * 0.61 + siteIndex * 0.9;

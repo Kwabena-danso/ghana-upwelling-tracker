@@ -7,7 +7,6 @@
     const endInput = document.getElementById("end-date");
     const recordsBody = document.getElementById("records-body");
     const emptyState = document.getElementById("empty-state");
-    const sitesByName = new Map(demo.sites.map(function (site) { return [site.name, site]; }));
     const dates = demo.records.map(function (record) { return record.date; }).sort();
 
     demo.sites.forEach(function (site) {
@@ -86,15 +85,32 @@
     }
 
     function mapPoint(site) {
-        const x = 60 + ((site.longitude + 2.5) / 2.65) * 580;
-        const y = 226 - ((site.latitude - 4.55) / 1.25) * 190;
+        const x = 60 + ((site.longitude - demo.raster.minLongitude) / (demo.raster.maxLongitude - demo.raster.minLongitude)) * 580;
+        const y = 226 - ((site.latitude - demo.raster.minLatitude) / (demo.raster.maxLatitude - demo.raster.minLatitude)) * 190;
         return { x: x, y: y };
+    }
+
+    function rasterColor(value) {
+        const colors = ["#d6eee9", "#99d5cc", "#54b5a9", "#268e88", "#176673"];
+        return colors[Math.min(colors.length - 1, Math.floor(value * colors.length))];
     }
 
     function renderMap() {
         const map = document.getElementById("site-map");
         const selectedSite = siteFilter.value;
-        const horizontalLines = [48, 105, 162, 219].map(function (y) {
+        const rasterVisible = document.getElementById("raster-toggle").checked;
+        const pointsVisible = document.getElementById("points-toggle").checked;
+        const raster = [];
+        for (let row = 0; row < demo.raster.rows; row += 1) {
+            for (let column = 0; column < demo.raster.columns; column += 1) {
+                const value = (Math.sin((column + 1) * 1.7) + Math.cos((row + 2) * 1.3) + 2) / 4;
+                const cellWidth = 580 / demo.raster.columns;
+                const cellHeight = 192 / demo.raster.rows;
+                raster.push('<rect class="raster-cell" x="' + (60 + column * cellWidth).toFixed(1) + '" y="' + (34 + row * cellHeight).toFixed(1) +
+                    '" width="' + cellWidth.toFixed(1) + '" height="' + cellHeight.toFixed(1) + '" fill="' + rasterColor(value) + '"></rect>');
+            }
+        }
+        const horizontalLines = [34, 98, 162, 226].map(function (y) {
             return '<line class="map-grid-line" x1="60" y1="' + y + '" x2="640" y2="' + y + '"></line>';
         }).join("");
         const verticalLines = [60, 205, 350, 495, 640].map(function (x) {
@@ -103,17 +119,20 @@
         const markers = demo.sites.map(function (site) {
             const point = mapPoint(site);
             const selected = selectedSite === site.name;
-            const labelOffset = site.name === "Accra" ? -13 : 21;
+            const labelOffset = site.name === "Accra" || site.name === "Keta" ? -12 : 19;
+            const labelAnchor = site.name === "Keta" || site.name === "Cape Three Points" ? "end" : "start";
+            const labelX = labelAnchor === "end" ? point.x - 10 : point.x + 10;
             return '<g class="map-marker" data-site="' + site.name + '">' +
-                '<circle class="site-dot' + (selected ? " is-selected" : "") + '" cx="' + point.x.toFixed(1) + '" cy="' + point.y.toFixed(1) + '" r="' + (selected ? 8 : 6) + '"><title>' + site.name + ' · demo location</title></circle>' +
-                '<text class="site-label" x="' + (point.x + 11).toFixed(1) + '" y="' + (point.y + labelOffset).toFixed(1) + '">' + site.name + '</text></g>';
+                '<circle class="site-dot' + (selected ? " is-selected" : "") + '" cx="' + point.x.toFixed(1) + '" cy="' + point.y.toFixed(1) + '" r="' + (selected ? 8 : 6) + '"><title>' + site.name + ' · approximate demo community</title></circle>' +
+                '<text class="site-label" x="' + labelX.toFixed(1) + '" y="' + (point.y + labelOffset).toFixed(1) + '" text-anchor="' + labelAnchor + '">' + site.name + '</text></g>';
         }).join("");
         map.setAttribute("viewBox", "0 0 700 270");
         map.innerHTML = '<rect x="0" y="0" width="700" height="270" fill="#edf6f6"></rect>' +
-            horizontalLines + verticalLines +
-            '<text class="map-axis-label" x="60" y="250">2.5°W</text><text class="map-axis-label" x="334" y="250">1.25°W</text><text class="map-axis-label" x="612" y="250">0°</text>' +
-            '<text class="map-axis-label" x="15" y="50">5.8°N</text><text class="map-axis-label" x="15" y="166">5.0°N</text><text class="map-axis-label" x="15" y="224">4.6°N</text>' +
-            markers;
+            (rasterVisible ? '<g class="raster-layer" aria-label="Synthetic demo raster covering the displayed coordinate extent">' + raster.join("") + '</g>' : "") +
+            '<g class="map-grid">' + horizontalLines + verticalLines + '</g>' +
+            '<text class="map-axis-label" x="60" y="250">3°W</text><text class="map-axis-label" x="193" y="250">2°W</text><text class="map-axis-label" x="332" y="250">1°W</text><text class="map-axis-label" x="482" y="250">0°</text><text class="map-axis-label" x="618" y="250">1°E</text>' +
+            '<text class="map-axis-label" x="15" y="39">6.0°N</text><text class="map-axis-label" x="15" y="104">5.5°N</text><text class="map-axis-label" x="15" y="169">5.0°N</text><text class="map-axis-label" x="15" y="229">4.5°N</text>' +
+            (pointsVisible ? '<g class="points-layer">' + markers + '</g>' : "");
         map.querySelectorAll(".map-marker").forEach(function (marker) {
             marker.addEventListener("click", function () {
                 siteFilter.value = marker.dataset.site;
@@ -125,7 +144,7 @@
         siteList.replaceChildren();
         const heading = document.createElement("p");
         heading.className = "site-list-label";
-        heading.textContent = "Explore a site";
+        heading.textContent = "Explore a community";
         siteList.appendChild(heading);
         demo.sites.forEach(function (site) {
             const button = document.createElement("button");
@@ -139,7 +158,8 @@
             label.appendChild(document.createTextNode(site.name));
             const coordinates = document.createElement("span");
             coordinates.className = "site-coords";
-            coordinates.textContent = site.latitude.toFixed(2) + "°N, " + Math.abs(site.longitude).toFixed(2) + "°W · approximate";
+            coordinates.textContent = site.latitude.toFixed(2) + "°N, " + Math.abs(site.longitude).toFixed(2) +
+                "°" + (site.longitude < 0 ? "W" : "E") + " · approximate";
             label.appendChild(coordinates);
             button.append(swatch, label);
             button.addEventListener("click", function () {
@@ -298,6 +318,9 @@
     });
     [siteFilter, startInput, endInput].forEach(function (input) {
         input.addEventListener("change", render);
+    });
+    [document.getElementById("raster-toggle"), document.getElementById("points-toggle")].forEach(function (input) {
+        input.addEventListener("change", renderMap);
     });
 
     render();

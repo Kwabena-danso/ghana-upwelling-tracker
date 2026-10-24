@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ghana EEZ Coastal Upwelling & Nitrate Dynamics</title>
+    <!-- Include Chart.js for data visualization -->
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f4f7f6;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        header {
+            border-bottom: 2px solid #eef2f5;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        h1 { margin: 0 0 10px 0; color: #0b3c5d; font-size: 28px; }
+        p.subtitle { margin: 0; color: #666; font-size: 15px; line-height: 1.5; }
+        .chart-card {
+            background: #fff;
+            border: 1px solid #eef2f5;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+        .chart-card h2 { margin-top: 0; color: #328cc1; font-size: 18px; }
+        footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #eef2f5;
+            padding-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Ghana EEZ Oceanographic Observatory</h1>
+        <p class="subtitle">
+            Automated monitoring of physical and biological upwelling dynamics along the coastal shelf of Ghana. 
+            Data sourced from Copernicus Marine Service models and computed via automated workflows.
+        </p>
+    </header>
+
+    <div id="loading-state" class="loading">Loading oceanographic time series...</div>
+
+    <div id="dashboard-content" style="display: none;">
+        <!-- CUTI Chart Card -->
+        <div class="chart-card">
+            <h2>Coastal Upwelling Transport Index (CUTI)</h2>
+            <div style="position: relative; height:350px; width:100%">
+                <canvas id="cutiChart"></canvas>
+            </div>
+        </div>
+
+        <!-- BEUTI Chart Card -->
+        <div class="chart-card">
+            <h2>Biologically Effective Upwelling Transport Index (BEUTI)</h2>
+            <div style="position: relative; height:350px; width:100%">
+                <canvas id="beutiChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>This portal updates automatically every Sunday. Powered by GitHub Actions and GitHub Pages.</p>
+        <p style="font-style: italic; font-size: 11px;">Disclaimer: Experimental dataset built for academic and research monitoring along the West African coast.</p>
+    </footer>
+</div>
+
+<script>
+    // Fetch data dynamically from your repository's database file
+    fetch('data.json')
+        .then(response => response.json())
+        .then(data => {
+            if (data.length === 0) {
+                document.getElementById('loading-state').innerText = "Database initialized but empty. Waiting for the first automated pipeline run.";
+                return;
+            }
+
+            // Hide loading message and show charts
+            document.getElementById('loading-state').style.display = 'none';
+            document.getElementById('dashboard-content').style.display = 'block';
+
+            // Parse arrays for dates, cuti, and beuti values
+            const dates = data.map(item => item.date);
+            const cutiValues = data.map(item => item.cuti);
+            const beutiValues = data.map(item => item.beuti);
+
+            // 1. Build the Physical Transport Chart (CUTI)
+            const ctxCuti = document.getElementById('cutiChart').getContext('2d');
+            new Chart(ctxCuti, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Vertical Transport Volume (m²/s per meter of coast)',
+                        data: cutiValues,
+                        borderColor: '#0b3c5d',
+                        backgroundColor: 'rgba(11, 60, 93, 0.05)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { title: { display: true, text: 'CUTI Index' } },
+                        x: { title: { display: true, text: 'Date' } }
+                    }
+                }
+            });
+
+            // 2. Build the Nutrient Flux Chart (BEUTI)
+            const ctxBeuti = document.getElementById('beutiChart').getContext('2d');
+            new Chart(ctxBeuti, {
+                type: 'line',
+                data: {
+                    labels: dates,
+                    datasets: [{
+                        label: 'Vertical Nitrate Flux (mmol/m/s)',
+                        data: beutiValues,
+                        borderColor: '#d9534f',
+                        backgroundColor: 'rgba(217, 83, 79, 0.05)',
+                        borderWidth: 2,
+                        tension: 0.1,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { title: { display: true, text: 'BEUTI Flux' } },
+                        x: { title: { display: true, text: 'Date' } }
+                    }
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading data:', error);
+            document.getElementById('loading-state').innerText = "Failed to load index data.";
+        });
+</script>
+
+</body>
+</html>

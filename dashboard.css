@@ -37,20 +37,23 @@ button { cursor: pointer; }
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid var(--line);
+    margin: 0 calc(-1 * clamp(16px, 2.2vw, 40px));
+    padding: 0 clamp(16px, 2.2vw, 40px);
+    background: linear-gradient(110deg, #102c3d, #145469);
+    box-shadow: 0 5px 18px rgba(16, 44, 61, .16);
 }
 
 .brand {
     display: inline-flex;
     align-items: center;
     gap: 11px;
-    color: var(--ink);
+    color: #fff;
     font-size: 14px;
     text-decoration: none;
     letter-spacing: -.02em;
 }
 
-.brand strong { font-weight: 720; }
+.brand strong { font-weight: 800; }
 
 .brand-mark {
     display: grid;
@@ -58,28 +61,12 @@ button { cursor: pointer; }
     width: 34px;
     height: 34px;
     border-radius: 10px;
-    background: var(--navy);
+    background: var(--teal);
     color: #fff;
     font-family: Georgia, serif;
     font-size: 19px;
     font-weight: 700;
 }
-
-.demo-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 10px;
-    border: 1px solid #eed8a9;
-    border-radius: 99px;
-    background: #fff9e9;
-    color: #775719;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: .08em;
-}
-
-.demo-badge span { width: 7px; height: 7px; border-radius: 50%; background: #d79a28; }
 
 main { display: flex; min-height: 0; flex: 1; flex-direction: column; padding: 8px 0; overflow: hidden; }
 

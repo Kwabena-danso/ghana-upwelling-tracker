@@ -45,9 +45,36 @@ The tracking focusing on key coastal nodes where upwelling intensity historicall
 
 ## 🛠️ Data Sources & Tech Stack
 
-*   **Data Inputs:** ERA5 Reanalysis Wind Data, NOAA Sentinel/MODIS Sea Surface Temperature, and Copernicus Marine Service (CMEMS) Altimetry.
-*   **Language:** Python 🐍 / R 📊 *(Modify based on your choice)*
-*   **Libraries:** `xarray`, `pandas`, `numpy`, `matplotlib`, `cartopy`
+*   **Planned data inputs:** Copernicus Marine datasets selected and configured by the project user.
+*   **Language:** Python 🐍
+*   **Download library:** `copernicusmarine`
+
+## ⬇️ Raw Copernicus Marine Downloads
+
+`fetch_data.py` is a configurable scaffold for downloading raw NetCDF subsets. It does not select Copernicus products or variables, calculate CUTI/BEUTI, process files, or update the dashboard. Dataset IDs and exact variable names must be supplied in the configuration after they have been selected.
+
+1. Copy `copernicus_datasets.example.json` to `copernicus_datasets.local.json`. The wind, physics, and biogeochemistry entries are prefilled with the dataset IDs and variables you supplied. The physics request includes `thetao` (the temperature field you identified for SST), `so` (salinity), `zos` (sea-surface height), and `mlotst` (mixed-layer thickness), all from one dataset request.
+2. Unconfigured entries with `dataset_id: null` and an empty `variables` list are skipped. For any dataset you want to download, fill in its selected `dataset_id` and exact variable names from the Copernicus Marine catalogue. The Toolbox [`describe` command](https://toolbox-docs.marine.copernicus.eu/en/stable/usage/describe-usage.html) can look up catalogue metadata. Keep `name` unique; it determines the output filename.
+3. Install the Toolbox with `python -m pip install copernicusmarine` and set the `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD` environment variables.
+4. Run the downloader with the date range and bounding box you want:
+
+```sh
+python fetch_data.py \
+  --config copernicus_datasets.local.json \
+  --start-date 1993-01-01T00:00:00 \
+  --end-date 2026-09-22T00:00:00 \
+  --bbox WEST SOUTH EAST NORTH
+```
+
+The date options accept ISO 8601 dates or timestamps. The GitHub Actions workflow is prefilled with bounds `-3.991005 1.006076 2.502319 6.510059` and the date range shown above; you can edit these when starting it. The outputs are written to the ignored `raw_data/` directory as NetCDF files named from the configured dataset entries. Existing files are not overwritten unless `--overwrite` is supplied. At least one dataset must have a non-empty ID and variable list; the Copernicus Marine Toolbox reports whether those IDs and names exist in the catalogue. A download failure exits with an error.
+
+The GitHub Actions workflow is manual-only and reads `copernicus_datasets.example.json`, saving successful downloads as a 14-day artifact; it does not run the existing index-processing script. Configure repository secrets `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD`, then start the workflow with the prefilled or edited date range and bounds. Any dataset entries still left unconfigured are skipped.
+
+## 🖥️ Dashboard Interface
+
+The static dashboard in `index.html` provides a starting point for exploring a raster layer, coastal communities, time series, and underlying index records. Its current sample dataset is generated in `demo_data.js` and is **synthetic demonstration data only**; it is not sourced from Copernicus Marine and does not contain calculated CUTI/BEUTI observations. The map's raster, coordinate extent, and approximate community points are illustrative, not a real data-coverage footprint or Ghana EEZ boundary.
+
+On desktop, the map remains fixed in the main workspace while the exploration panel scrolls independently through filters, layers, charts, and raw records. Zoom with the map's plus/minus controls or the mouse wheel, and use Reset to restore the full view. Choose CUTI or BEUTI from the map's compact variable dropdown to update its synthetic raster, summary metrics, time-series chart, and the variable column in the raw table. SST, SSH, SOL, and NO3 appear as planned variables but remain disabled until data and units are defined. The community dropdown supports any combination of communities; “All communities” restores the unfiltered view. The “Explore a community” heading and community list are hidden while a point or polygon selection is active, while the community dropdown stays visible so users can switch back to community data. Clearing the drawn selection restores the heading and list. The raw table shows only the currently selected variable; CSV/JSON exports include all matching records and variables. It starts with five rows and can reveal more. On smaller screens the layout stacks and the page scrolls normally. Use the community and date filters to explore the sample records, or draw a point or polygon on the map to sample the illustrative raster. Point selections use the nearest demo cell; polygon selections average the demo cells inside the drawn area. The charts can be downloaded as SVG, and the filtered table can be exported as CSV or JSON. Copernicus Marine integration and verified EEZ geometry have not yet been connected to this interface.
 
 ---
 
@@ -71,4 +98,3 @@ Contributions, feedback, and collaboration from physical oceanographers, marine 
 
 🔬 **Author/Researcher:** [Your Name/GitHub Handle]
 🇬🇭 **Focus Region:** Gulf of Guinea (Ecosystem Sub-division 34)
-

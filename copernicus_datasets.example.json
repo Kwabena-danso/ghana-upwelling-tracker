@@ -1,0 +1,19 @@
+{
+  "datasets": [
+    {
+      "name": "wind",
+      "dataset_id": "cmems_obs-wind_glo_phy_my_l4_0.125deg_PT1H",
+      "variables": ["eastward_wind", "northward_wind"]
+    },
+    {
+      "name": "physics",
+      "dataset_id": "cmems_mod_glo_phy_my_0.083deg_P1D-m",
+      "variables": ["mlotst", "zos", "thetao", "so"]
+    },
+    {
+      "name": "nitrate",
+      "dataset_id": "cmems_mod_glo_bgc_my_0.25deg_P1D-m",
+      "variables": ["no3", "chl", "po4"]
+    }
+  ]
+}

@@ -1,58 +1,78 @@
-name: Automated Upwelling Tracker
+name: Download raw Copernicus Marine data
+
 on:
-  schedule:
-    - cron: '0 0 * * 0' # Every Sunday at midnight
-  workflow_dispatch: # Allows manual trigger
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: Start date/time (ISO 8601)
+        required: true
+        type: string
+        default: "1993-01-01T00:00:00"
+      end_date:
+        description: End date/time (ISO 8601)
+        required: true
+        type: string
+        default: "2026-09-22T00:00:00"
+      minimum_longitude:
+        description: Western longitude (degrees)
+        required: true
+        type: string
+        default: "-3.991005"
+      minimum_latitude:
+        description: Southern latitude (degrees)
+        required: true
+        type: string
+        default: "1.006076"
+      maximum_longitude:
+        description: Eastern longitude (degrees)
+        required: true
+        type: string
+        default: "2.502319"
+      maximum_latitude:
+        description: Northern latitude (degrees)
+        required: true
+        type: string
+        default: "6.510059"
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 jobs:
-  pipeline:
+  download:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout Repository Code
-      uses: actions/checkout@v4
+      - name: Check out repository
+        uses: actions/checkout@v4
 
-    - name: Initialize Python Environment
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.10'
-        cache: 'pip'
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
 
-    - name: Install Oceanographic Dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install copernicusmarine xarray netcdf4 numpy pandas
+      - name: Install Copernicus Marine Toolbox
+        run: python -m pip install copernicusmarine
 
-    - name: Fetch Remote Copernicus Marine Data
-      env:
-        CMS_USERNAME: ${{ secrets.CMS_USERNAME }}
-        CMS_PASSWORD: ${{ secrets.CMS_PASSWORD }}
-      run: python fetch_data.py
+      - name: Download configured raw datasets
+        env:
+          COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
+          COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
+          START_DATE: ${{ inputs.start_date }}
+          END_DATE: ${{ inputs.end_date }}
+          MINIMUM_LONGITUDE: ${{ inputs.minimum_longitude }}
+          MINIMUM_LATITUDE: ${{ inputs.minimum_latitude }}
+          MAXIMUM_LONGITUDE: ${{ inputs.maximum_longitude }}
+          MAXIMUM_LATITUDE: ${{ inputs.maximum_latitude }}
+        run: |
+          python fetch_data.py \
+            --config copernicus_datasets.example.json \
+            --start-date "$START_DATE" \
+            --end-date "$END_DATE" \
+            --bbox "$MINIMUM_LONGITUDE" "$MINIMUM_LATITUDE" "$MAXIMUM_LONGITUDE" "$MAXIMUM_LATITUDE"
 
-    - name: Compute CUTI & BEUTI Ocean Indices
-      run: python process_data.py
-
-    - name: Commit and Save Calculations
-      run: |
-        git config --global user.name "Ghana Upwelling System Bot"
-        git config --global user.email "upwelling-bot@github.com"
-        if ! git diff --exit-code data.json; then
-          git add data.json
-          git commit -m "Automated update: Added recent upwelling and nitrate data [$(date -u)]"
-          git push
-        else
-          echo "No modifications found."
-        fi
-
-    - name: Setup GitHub Pages Infrastructure
-      uses: actions/configure-pages@v4
-    - name: Package Web Space Bundle
-      uses: actions/upload-pages-artifact@v3
-      with:
-        path: '.'
-    - name: Deploy Portal to GitHub Pages
-      uses: actions/deploy-pages@v4
+      - name: Save raw NetCDF files
+        uses: actions/upload-artifact@v4
+        with:
+          name: copernicus-raw-data
+          path: raw_data/*.nc
+          if-no-files-found: error
+          retention-days: 14

@@ -61,14 +61,14 @@ The tracking focusing on key coastal nodes where upwelling intensity historicall
 ```sh
 python fetch_data.py \
   --config copernicus_datasets.local.json \
-  --start-date YYYY-MM-DD \
-  --end-date YYYY-MM-DD \
+  --start-date 1993-01-01T00:00:00 \
+  --end-date 2026-09-22T00:00:00 \
   --bbox WEST SOUTH EAST NORTH
 ```
 
-The outputs are written to the ignored `raw_data/` directory as NetCDF files named from the configured dataset entries. Existing files are not overwritten unless `--overwrite` is supplied. The command validates dates and bounds and requires non-empty dataset IDs and variable lists; the Copernicus Marine Toolbox reports whether those IDs and names exist in the catalogue. A download failure exits with an error.
+The date options accept ISO 8601 dates or timestamps. The GitHub Actions workflow is prefilled with bounds `-3.991005 1.006076 2.502319 6.510059` and the date range shown above; you can edit these when starting it. The outputs are written to the ignored `raw_data/` directory as NetCDF files named from the configured dataset entries. Existing files are not overwritten unless `--overwrite` is supplied. The command validates dates and bounds and requires non-empty dataset IDs and variable lists; the Copernicus Marine Toolbox reports whether those IDs and names exist in the catalogue. A download failure exits with an error.
 
-The GitHub Actions workflow is manual-only and saves successful downloads as a 14-day artifact; it does not run the existing index-processing script. To use it, configure repository variable `COPERNICUS_DATASETS_JSON` with the same JSON structure as the example and repository secrets `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD`, then enter a date range and bounds when starting the workflow.
+The GitHub Actions workflow is manual-only and saves successful downloads as a 14-day artifact; it does not run the existing index-processing script. To use it, configure repository variable `COPERNICUS_DATASETS_JSON` with the same JSON structure as the example and repository secrets `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD`, then start the workflow with the prefilled or edited date range and bounds.
 
 ## 🖥️ Dashboard Interface
 

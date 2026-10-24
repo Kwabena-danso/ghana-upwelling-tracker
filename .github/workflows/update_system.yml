@@ -4,29 +4,35 @@ on:
   workflow_dispatch:
     inputs:
       start_date:
-        description: Start date (YYYY-MM-DD)
+        description: Start date/time (ISO 8601)
         required: true
         type: string
+        default: "1993-01-01T00:00:00"
       end_date:
-        description: End date (YYYY-MM-DD)
+        description: End date/time (ISO 8601)
         required: true
         type: string
+        default: "2026-09-22T00:00:00"
       minimum_longitude:
         description: Western longitude (degrees)
         required: true
         type: string
+        default: "-3.991005"
       minimum_latitude:
         description: Southern latitude (degrees)
         required: true
         type: string
+        default: "1.006076"
       maximum_longitude:
         description: Eastern longitude (degrees)
         required: true
         type: string
+        default: "2.502319"
       maximum_latitude:
         description: Northern latitude (degrees)
         required: true
         type: string
+        default: "6.510059"
 
 permissions:
   contents: read

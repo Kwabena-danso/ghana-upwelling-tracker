@@ -52,12 +52,17 @@ class FetchDataTests(unittest.TestCase):
 
     def test_validates_dates_and_bounding_box(self):
         validate_request_range("2024-01-01", "2024-01-02", [-4, 2, 2, 7])
+        validate_request_range(
+            "1993-01-01T00:00:00",
+            "2026-09-22T00:00:00",
+            [-3.991005, 1.006076, 2.502319, 6.510059],
+        )
 
         with self.assertRaisesRegex(ValueError, "on or before"):
             validate_request_range("2024-01-02", "2024-01-01", [-4, 2, 2, 7])
         with self.assertRaisesRegex(ValueError, "western longitude"):
             validate_request_range("2024-01-01", "2024-01-02", [2, 2, -4, 7])
-        with self.assertRaisesRegex(ValueError, "YYYY-MM-DD"):
+        with self.assertRaisesRegex(ValueError, "ISO 8601"):
             validate_request_range("01-01-2024", "2024-01-02", [-4, 2, 2, 7])
 
     def test_passes_configured_values_and_user_range_to_toolbox(self):
@@ -92,6 +97,32 @@ class FetchDataTests(unittest.TestCase):
         self.assertEqual(calls[0]["output_filename"], "sample.nc")
         self.assertEqual(calls[0]["minimum_longitude"], -4)
         self.assertEqual(calls[0]["maximum_latitude"], 7)
+
+    def test_forwards_iso_timestamps_without_truncating(self):
+        request = DatasetRequest("sample", "selected_dataset", ("variable_a",))
+        calls = []
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            with patch.dict(
+                os.environ,
+                {
+                    "COPERNICUSMARINE_SERVICE_USERNAME": "test-user",
+                    "COPERNICUSMARINE_SERVICE_PASSWORD": "test-password",
+                },
+            ):
+                download_datasets(
+                    [request],
+                    "1993-01-01T00:00:00",
+                    "2026-09-22T00:00:00",
+                    [-3.991005, 1.006076, 2.502319, 6.510059],
+                    Path(temporary_directory),
+                    subset_function=lambda **kwargs: calls.append(kwargs),
+                )
+
+        self.assertEqual(calls[0]["start_datetime"], "1993-01-01T00:00:00")
+        self.assertEqual(calls[0]["end_datetime"], "2026-09-22T00:00:00")
+        self.assertEqual(calls[0]["minimum_longitude"], -3.991005)
+        self.assertEqual(calls[0]["maximum_longitude"], 2.502319)
 
     def test_stops_and_reports_dataset_when_toolbox_fails(self):
         request = DatasetRequest("sample", "selected_dataset", ("variable_a",))

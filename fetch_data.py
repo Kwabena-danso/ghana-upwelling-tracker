@@ -6,7 +6,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Sequence
 
@@ -64,19 +64,19 @@ def load_dataset_requests(config_path: Path) -> list[DatasetRequest]:
     return requests
 
 
-def parse_date(value: str, argument_name: str) -> date:
+def parse_datetime(value: str, argument_name: str) -> datetime:
     try:
-        parsed = date.fromisoformat(value)
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as error:
-        raise ValueError(f"{argument_name} must be a date in YYYY-MM-DD format.") from error
-    if parsed.isoformat() != value:
-        raise ValueError(f"{argument_name} must be a date in YYYY-MM-DD format.")
+        raise ValueError(f"{argument_name} must be an ISO 8601 date or datetime.") from error
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
     return parsed
 
 
 def validate_request_range(start_date: str, end_date: str, bbox: Sequence[float]) -> None:
-    start = parse_date(start_date, "--start-date")
-    end = parse_date(end_date, "--end-date")
+    start = parse_datetime(start_date, "--start-date")
+    end = parse_datetime(end_date, "--end-date")
     if start > end:
         raise ValueError("--start-date must be on or before --end-date.")
     if len(bbox) != 4:
@@ -151,8 +151,8 @@ def build_parser() -> argparse.ArgumentParser:
         description="Download configured Copernicus Marine dataset subsets as raw NetCDF files."
     )
     parser.add_argument("--config", type=Path, required=True, help="Path to the dataset JSON configuration.")
-    parser.add_argument("--start-date", required=True, help="Start date in YYYY-MM-DD format.")
-    parser.add_argument("--end-date", required=True, help="End date in YYYY-MM-DD format.")
+    parser.add_argument("--start-date", required=True, help="Start date or ISO 8601 datetime.")
+    parser.add_argument("--end-date", required=True, help="End date or ISO 8601 datetime.")
     parser.add_argument(
         "--bbox",
         type=float,

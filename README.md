@@ -49,6 +49,12 @@ The tracking focusing on key coastal nodes where upwelling intensity historicall
 *   **Language:** Python 🐍 / R 📊 *(Modify based on your choice)*
 *   **Libraries:** `xarray`, `pandas`, `numpy`, `matplotlib`, `cartopy`
 
+## 🖥️ Dashboard Interface
+
+The static dashboard in `index.html` provides a starting point for exploring the coastal sites, time series, and underlying index records. Its current sample dataset is generated in `demo_data.js` and is **synthetic demonstration data only**; it is not sourced from Copernicus Marine and does not contain calculated CUTI/BEUTI observations. The map is a schematic coordinate view of approximate demonstration locations, not a Ghana EEZ boundary.
+
+Use the site and date filters to explore the sample records. The charts can be downloaded as SVG, and the filtered table can be exported as CSV or JSON. Copernicus Marine integration and verified EEZ geometry have not yet been connected to this interface.
+
 ---
 
 ## 📂 Repository Structure
@@ -71,4 +77,3 @@ Contributions, feedback, and collaboration from physical oceanographers, marine 
 
 🔬 **Author/Researcher:** [Your Name/GitHub Handle]
 🇬🇭 **Focus Region:** Gulf of Guinea (Ecosystem Sub-division 34)
-

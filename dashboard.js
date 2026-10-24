@@ -9,6 +9,7 @@
     const emptyState = document.getElementById("empty-state");
     const dates = Array.from(new Set(demo.records.map(function (record) { return record.date; }))).sort();
     const initialRecordCount = 5;
+    let selectedVariable = "cuti";
     let selection = null;
     let drawingMode = null;
     let polygonDraft = [];
@@ -131,17 +132,18 @@
     }
 
     function renderMetrics(records) {
+        const variableName = selectedVariable.toUpperCase();
         const latestDate = records.reduce(function (latest, record) {
             return record.date > latest ? record.date : latest;
         }, "");
         const strongest = records.reduce(function (best, record) {
-            return !best || record.cuti > best.cuti ? record : best;
+            return !best || record[selectedVariable] > best[selectedVariable] ? record : best;
         }, null);
         const metrics = [
-            { label: "Mean CUTI", value: mean(records, "cuti"), unit: "demo units", detail: "Across filtered records" },
-            { label: "Mean BEUTI", value: mean(records, "beuti"), unit: "demo units", detail: "Across filtered records" },
-            { label: "Highest CUTI sample", value: strongest ? strongest.cuti : null, unit: strongest ? strongest.site : "", detail: strongest ? formatDate(strongest.date) : "No matching records" },
-            { label: "Latest sample date", value: latestDate ? formatDate(latestDate) : "—", unit: "", detail: records.length + " records in this view" }
+            { label: "Mean " + variableName, value: mean(records, selectedVariable), unit: "demo units", detail: "Across filtered records" },
+            { label: "Highest " + variableName + " sample", value: strongest ? strongest[selectedVariable] : null, unit: strongest ? strongest.site : "", detail: strongest ? formatDate(strongest.date) : "No matching records" },
+            { label: "Latest sample date", value: latestDate ? formatDate(latestDate) : "—", unit: "", detail: records.length + " records in this view" },
+            { label: "Records in view", value: records.length, unit: "", detail: selection ? selection.name : "Across selected communities" }
         ];
         const container = document.getElementById("metrics");
         container.replaceChildren();
@@ -192,7 +194,7 @@
 
     function rasterColor(value) {
         const colors = ["#d6eee9", "#99d5cc", "#54b5a9", "#268e88", "#176673"];
-        return colors[Math.min(colors.length - 1, Math.floor(value * colors.length))];
+        return colors[Math.max(0, Math.min(colors.length - 1, Math.floor(value * colors.length)))];
     }
 
     function renderMap() {
@@ -201,11 +203,19 @@
         const rasterVisible = document.getElementById("raster-toggle").checked;
         const pointsVisible = document.getElementById("points-toggle").checked;
         const raster = [];
+        const rasterValues = demo.records.map(function (record) { return record[selectedVariable]; });
+        const rasterMinimum = Math.min.apply(null, rasterValues);
+        const rasterMaximum = Math.max.apply(null, rasterValues);
         for (let row = 0; row < demo.raster.rows; row += 1) {
             for (let column = 0; column < demo.raster.columns; column += 1) {
-                const value = (Math.sin((column + 1) * 1.7) + Math.cos((row + 2) * 1.3) + 2) / 4;
                 const cellWidth = 580 / demo.raster.columns;
                 const cellHeight = 192 / demo.raster.rows;
+                const longitude = demo.raster.minLongitude + (column + 0.5) / demo.raster.columns *
+                    (demo.raster.maxLongitude - demo.raster.minLongitude);
+                const latitude = demo.raster.maxLatitude - (row + 0.5) / demo.raster.rows *
+                    (demo.raster.maxLatitude - demo.raster.minLatitude);
+                const rasterSample = sampleCell(longitude, latitude, dates.length - 1)[selectedVariable];
+                const value = (rasterSample - rasterMinimum) / (rasterMaximum - rasterMinimum);
                 raster.push('<rect class="raster-cell" x="' + (60 + column * cellWidth).toFixed(1) + '" y="' + (34 + row * cellHeight).toFixed(1) +
                     '" width="' + cellWidth.toFixed(1) + '" height="' + cellHeight.toFixed(1) + '" fill="' + rasterColor(value) + '"></rect>');
             }
@@ -223,7 +233,7 @@
             const labelAnchor = site.name === "Keta" || site.name === "Cape Three Points" ? "end" : "start";
             const labelX = labelAnchor === "end" ? point.x - 10 : point.x + 10;
             return '<g class="map-marker" data-site="' + site.name + '">' +
-                '<circle class="site-dot' + (selected ? " is-selected" : "") + '" cx="' + point.x.toFixed(1) + '" cy="' + point.y.toFixed(1) + '" r="' + (selected ? 8 : 6) + '"><title>' + site.name + ' · approximate demo community</title></circle>' +
+                '<circle class="site-dot' + (selected ? " is-selected" : "") + '" cx="' + point.x.toFixed(1) + '" cy="' + point.y.toFixed(1) + '" r="' + (selected ? 8 : 6) + '"><title>' + site.name + ' · demo community</title></circle>' +
                 '<text class="site-label" x="' + labelX.toFixed(1) + '" y="' + (point.y + labelOffset).toFixed(1) + '" text-anchor="' + labelAnchor + '">' + site.name + '</text></g>';
         }).join("");
         const selectedFeature = selection ? (selection.type === "point"
@@ -248,6 +258,9 @@
             }).join("") + '</g>' : "";
         map.setAttribute("viewBox", "0 0 700 270");
         map.classList.toggle("map-drawing", Boolean(drawingMode));
+        document.getElementById("raster-legend-title").textContent = selectedVariable.toUpperCase() + " raster · demo";
+        document.querySelector(".community-filter").hidden = Boolean(selection);
+        document.getElementById("site-list").hidden = Boolean(selection);
         map.innerHTML = '<rect x="0" y="0" width="700" height="270" fill="#edf6f6"></rect>' +
             (rasterVisible ? '<g class="raster-layer" aria-label="Synthetic demo raster covering the displayed coordinate extent">' + raster.join("") + '</g>' : "") +
             '<g class="map-grid">' + horizontalLines + verticalLines + '</g>' +
@@ -420,7 +433,7 @@
             instructions.textContent = "Click to add polygon vertices, then finish the polygon to average covered demo cells. " +
                 polygonDraft.length + " point" + (polygonDraft.length === 1 ? "" : "s") + " added.";
         } else if (selection) {
-            instructions.textContent = selection.name + " selected. Charts and records show its demo raster sample.";
+            instructions.textContent = selection.name + " selected. " + selectedVariable.toUpperCase() + " chart and metrics show its demo raster sample.";
         } else {
             instructions.textContent = "Choose a point or draw a polygon to sample the raster.";
         }
@@ -432,6 +445,12 @@
         document.getElementById("records-title").textContent = selection
             ? (selection.type === "point" ? "Point sample records" : "Polygon average records")
             : "Raw demonstration records";
+        document.querySelectorAll(".map-variable-button").forEach(function (button) {
+            button.setAttribute("aria-pressed", String(button.dataset.variable === selectedVariable));
+        });
+        document.querySelectorAll(".chart-panel").forEach(function (panel) {
+            panel.hidden = panel.dataset.variable !== selectedVariable;
+        });
         renderMetrics(records);
         renderMap();
         renderChart("cuti-chart", records, "cuti", "#078c83", "CUTI demo units");
@@ -474,6 +493,12 @@
             clone.setAttribute("width", "1240");
             clone.setAttribute("height", "470");
             download(button.dataset.chart + "-demo-chart.svg", new XMLSerializer().serializeToString(clone), "image/svg+xml;charset=utf-8");
+        });
+        document.querySelectorAll(".map-variable-button").forEach(function (button) {
+            button.addEventListener("click", function () {
+                selectedVariable = button.dataset.variable;
+                render();
+            });
         });
     });
     document.getElementById("export-csv").addEventListener("click", function () { exportRecords("csv"); });

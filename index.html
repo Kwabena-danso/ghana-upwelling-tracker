@@ -21,16 +21,13 @@
 
         <main>
             <div class="explorer-layout">
-                <section class="panel map-panel" aria-labelledby="map-title">
-                    <div class="panel-heading">
-                        <div>
-                            <p class="eyebrow">SPATIAL EXPLORER</p>
-                            <h2 id="map-title">Community &amp; raster map</h2>
-                        </div>
-                        <span class="panel-note">Illustrative raster · approximate communities</span>
-                    </div>
+                <section class="panel map-panel" aria-label="Interactive map">
                     <div class="map-frame">
-                        <svg id="site-map" role="img" aria-label="Illustrative synthetic raster coverage with approximate Ghana coastal community points"></svg>
+                        <svg id="site-map" role="img" aria-label="Synthetic Ghana coastal data map with community locations"></svg>
+                        <div class="map-variable-control" role="group" aria-label="Select map variable">
+                            <button class="button button-quiet map-variable-button" type="button" data-variable="cuti" aria-pressed="true">CUTI</button>
+                            <button class="button button-quiet map-variable-button" type="button" data-variable="beuti" aria-pressed="false">BEUTI</button>
+                        </div>
                     </div>
                 </section>
 
@@ -40,7 +37,7 @@
                             <p class="eyebrow">EXPLORE DATA</p>
                             <button class="button button-quiet" id="reset-filters" type="button">Reset</button>
                         </div>
-                        <label class="filter-control">
+                        <label class="filter-control community-filter">
                             <span>Community</span>
                             <select id="site-filter" aria-label="Filter by coastal community">
                                 <option value="all">All communities</option>
@@ -78,7 +75,7 @@
                             <label><input id="points-toggle" type="checkbox" checked> Community points</label>
                         </div>
                         <div class="raster-legend" id="raster-legend">
-                            <p class="site-list-label">Illustrative raster</p>
+                            <p class="site-list-label" id="raster-legend-title">CUTI raster · demo</p>
                             <div class="raster-gradient" aria-hidden="true"></div>
                             <div class="legend-labels"><span>Lower</span><span>Higher</span></div>
                             <p class="legend-caption">Synthetic values only</p>
@@ -92,7 +89,7 @@
                     </section>
 
                     <section class="chart-grid" aria-label="Upwelling index charts">
-                        <article class="panel chart-panel">
+                        <article class="panel chart-panel" data-variable="cuti">
                             <div class="panel-heading">
                                 <div>
                                     <p class="eyebrow">PHYSICAL INDICATOR</p>
@@ -104,7 +101,7 @@
                             <div class="chart-wrap"><svg id="cuti-chart" role="img" aria-label="CUTI demonstration time series"></svg></div>
                             <p class="unit-note">Synthetic values · units pending methodology</p>
                         </article>
-                        <article class="panel chart-panel">
+                        <article class="panel chart-panel" data-variable="beuti" hidden>
                             <div class="panel-heading">
                                 <div>
                                     <p class="eyebrow">BIOLOGICAL INDICATOR</p>

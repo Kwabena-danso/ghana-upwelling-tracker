@@ -6,14 +6,24 @@
       "variables": ["eastward_wind", "northward_wind"]
     },
     {
-      "name": "physics",
+      "name": "sea_surface_height",
       "dataset_id": "cmems_mod_glo_phy_my_0.083deg_P1D-m",
-      "variables": ["mlotst", "zos", "thetao", "so"]
+      "variables": ["mlotst", "zos"]
     },
     {
       "name": "nitrate",
       "dataset_id": "cmems_mod_glo_bgc_my_0.25deg_P1D-m",
       "variables": ["no3", "chl", "po4"]
+    },
+    {
+      "name": "sea_surface_temperature",
+      "dataset_id": "cmems_mod_glo_phy_my_0.083deg_P1D-m",
+      "variables": ["thetao"]
+    },
+    {
+      "name": "salinity",
+      "dataset_id": "cmems_mod_glo_phy_my_0.083deg_P1D-m",
+      "variables": ["so"]
     }
   ]
 }

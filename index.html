@@ -24,9 +24,17 @@
                 <section class="panel map-panel" aria-label="Interactive map">
                     <div class="map-frame">
                         <svg id="site-map" role="img" aria-label="Synthetic Ghana coastal data map with community locations"></svg>
-                        <div class="map-variable-control" role="group" aria-label="Select map variable">
-                            <button class="button button-quiet map-variable-button" type="button" data-variable="cuti" aria-pressed="true">CUTI</button>
-                            <button class="button button-quiet map-variable-button" type="button" data-variable="beuti" aria-pressed="false">BEUTI</button>
+                        <p class="map-eyebrow">SPATIAL EXPLORER</p>
+                        <div class="map-variable-control">
+                            <label for="map-variable">Variable</label>
+                            <select id="map-variable" aria-label="Select map variable">
+                                <option value="cuti">CUTI</option>
+                                <option value="beuti">BEUTI</option>
+                                <option value="sst" disabled>SST · coming soon</option>
+                                <option value="ssh" disabled>SSH · coming soon</option>
+                                <option value="sol" disabled>SOL · coming soon</option>
+                                <option value="no3" disabled>NO3 · coming soon</option>
+                            </select>
                         </div>
                     </div>
                 </section>

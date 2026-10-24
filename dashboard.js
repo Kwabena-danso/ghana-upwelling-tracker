@@ -445,9 +445,7 @@
         document.getElementById("records-title").textContent = selection
             ? (selection.type === "point" ? "Point sample records" : "Polygon average records")
             : "Raw demonstration records";
-        document.querySelectorAll(".map-variable-button").forEach(function (button) {
-            button.setAttribute("aria-pressed", String(button.dataset.variable === selectedVariable));
-        });
+        document.getElementById("map-variable").value = selectedVariable;
         document.querySelectorAll(".chart-panel").forEach(function (panel) {
             panel.hidden = panel.dataset.variable !== selectedVariable;
         });
@@ -494,11 +492,9 @@
             clone.setAttribute("height", "470");
             download(button.dataset.chart + "-demo-chart.svg", new XMLSerializer().serializeToString(clone), "image/svg+xml;charset=utf-8");
         });
-        document.querySelectorAll(".map-variable-button").forEach(function (button) {
-            button.addEventListener("click", function () {
-                selectedVariable = button.dataset.variable;
-                render();
-            });
+        document.getElementById("map-variable").addEventListener("change", function (event) {
+            selectedVariable = event.target.value;
+            render();
         });
     });
     document.getElementById("export-csv").addEventListener("click", function () { exportRecords("csv"); });

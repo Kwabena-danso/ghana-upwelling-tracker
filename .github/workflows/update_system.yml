@@ -68,10 +68,23 @@ jobs:
             --end-date "$END_DATE" \
             --bbox "$MINIMUM_LONGITUDE" "$MINIMUM_LATITUDE" "$MAXIMUM_LONGITUDE" "$MAXIMUM_LATITUDE"
 
+      - name: Inspect downloaded NetCDF datasets
+        if: always()
+        run: python -m ghana_upwelling.process
+
       - name: Save raw NetCDF files
         uses: actions/upload-artifact@v4
         with:
           name: copernicus-raw-data
           path: data/raw/*.nc
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Save dataset quality report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: copernicus-quality-report
+          path: data/processed/quality_report.json
           if-no-files-found: error
           retention-days: 14

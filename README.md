@@ -1,6 +1,6 @@
 # 🌊 Ghana Upwelling Tracker 🇬🇭
 
-An oceanographic tracking and data analysis project monitoring coastal upwelling dynamics along **Ghana's Exclusive Economic Zone (EEZ)** in the Gulf of Guinea. This project leverages the **CUTI (Coastal Upwelling Transport Index)** and **BEAUTI (Biologically Effective Upwelling Transport Index)** frameworks to measure physical water transport and biological ecosystem impacts.
+An oceanographic tracking and data analysis project being developed to monitor coastal upwelling dynamics along **Ghana's Exclusive Economic Zone (EEZ)** in the Gulf of Guinea. The current pipeline downloads configured Copernicus Marine datasets and performs structural metadata checks; it does not yet calculate upwelling indices.
 
 ---
 
@@ -14,10 +14,12 @@ Coastal upwelling along the Northern Gulf of Guinea (specifically the Côte d'Iv
   <em>Figure 2: Map of the study area along Ghana's Exclusive Economic Zone (EEZ) showing data collection nodes.</em>
 </p>
 
-### 🔬 Core Methodologies
-This repository processes satellite, wind, and hydrodynamic data to calculate:
+### 🔬 Planned Scientific Methods
+Potential future analyses include:
 *   **💨 CUTI (Coastal Upwelling Transport Index):** Quantifies the net vertical mass transport of water into the surface mixed layer, assessing the physical strength of the upwelling signal.
 *   **🐟 BEAUTI (Biologically Effective Upwelling Transport Index):** Factors in the nutrient concentration of the source water to calculate the actual nitrate/biological flux reaching the euphotic zone.
+
+These calculations are not implemented. Their input variables, units, spatial domains, and scientific formulas must be verified before they are added to the processing pipeline.
 
 ---
 
@@ -37,9 +39,8 @@ The tracking focusing on key coastal nodes where upwelling intensity historicall
 
 ## 🚀 Key Features
 
-*   📊 **Index Time-Series Parsing:** Automated pipelines to ingest and clean daily wind and sea surface temperature (SST) datasets.
-*   📈 **Anomaly Tracking:** Computes localized SST deviations and wind-stress anomalies against long-term climatologies.
-*   🐋 **Ecological Indicators:** Corregulates CUTI/BEAUTI outputs against local marine chlorophyll-a concentrations to estimate pelagic fish stock variability.
+*   📊 **Raw-data pipeline:** Downloads configured Copernicus datasets and checks NetCDF structure and metadata.
+*   📈 **Planned analysis:** Index time series, anomaly tracking, and ecological indicators require future scientific-method validation and implementation.
 
 ---
 
@@ -68,7 +69,7 @@ python -m ghana_upwelling \
 
 The GitHub Actions workflow is manual-only, uses the same dataset inventory, and saves downloads as a 14-day artifact. Configure the two Copernicus credentials as repository secrets and start the workflow with the desired interval and bounds.
 
-The current pipeline only acquires raw data. `legacy/process_data.py` contains earlier, unvalidated index calculations and is not called by the workflow. Raw downloads are not yet processed into indices or connected to the dashboard's explicitly synthetic sample data.
+After downloading, run `python -m ghana_upwelling.process` to check each configured NetCDF file and write `data/processed/quality_report.json`. The report inventories configured variables, units, dimensions, time coverage, and latitude/longitude extent; missing files, variables, or coordinate metadata are reported as failures. This first processing stage is read-only: it does not scan every data value, resample grids, calculate indices, or connect data to the dashboard. The manual GitHub Actions workflow runs this check and saves the report with the raw-data artifact. `legacy/process_data.py` contains earlier, unvalidated index calculations and is not called by the workflow.
 
 ## 🖥️ Dashboard Interface
 
@@ -88,6 +89,8 @@ On desktop, the map remains fixed in the main workspace while the exploration pa
 │   ├── datasets.json              # Packaged core dataset request inventory
 │   ├── config.py                  # Request loading and validation
 │   ├── download.py                # Copernicus Marine subset downloads
+│   ├── quality.py                 # Non-destructive NetCDF checks and inventory
+│   ├── process.py                 # Processing/quality-check command
 │   └── cli.py                     # Command-line interface and defaults
 ├── tests/                         # Downloader and configuration tests
 ├── .github/workflows/             # Manual raw-data download workflow

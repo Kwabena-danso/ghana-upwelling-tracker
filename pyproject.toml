@@ -9,10 +9,13 @@ description = "Copernicus Marine data acquisition tools for Ghana's upwelling sy
 requires-python = ">=3.10"
 dependencies = [
     "copernicusmarine",
+    "xarray",
+    "h5netcdf",
 ]
 
 [project.scripts]
 ghana-upwelling-fetch = "ghana_upwelling.cli:main"
+ghana-upwelling-process = "ghana_upwelling.process:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

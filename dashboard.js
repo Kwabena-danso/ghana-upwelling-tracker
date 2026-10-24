@@ -421,16 +421,19 @@
                 cell.textContent = value;
                 row.appendChild(cell);
             });
-            [record.cuti, record.beuti].forEach(function (value) {
-                const cell = document.createElement("td");
-                const pill = document.createElement("span");
-                pill.className = "value-pill";
-                pill.textContent = value.toFixed(3);
-                cell.appendChild(pill);
-                row.appendChild(cell);
-            });
+            const valueCell = document.createElement("td");
+            const valuePill = document.createElement("span");
+            valuePill.className = "value-pill";
+            valuePill.textContent = record[selectedVariable].toFixed(3);
+            valueCell.appendChild(valuePill);
+            row.appendChild(valueCell);
             recordsBody.appendChild(row);
         });
+        const variableHeading = document.getElementById("records-variable-heading");
+        variableHeading.replaceChildren(selectedVariable.toUpperCase() + " ");
+        const demoLabel = document.createElement("span");
+        demoLabel.textContent = "(demo)";
+        variableHeading.appendChild(demoLabel);
         emptyState.hidden = rows.length > 0;
         const moreButton = document.getElementById("show-more-records");
         const remainingRecords = rows.length - visibleRecordCount;
@@ -438,7 +441,7 @@
         moreButton.textContent = "Show 5 more (" + remainingRecords + " remaining)";
         document.getElementById("records-caption").textContent = "Showing " +
             Math.min(visibleRecordCount, rows.length) + " of " + rows.length +
-            " matching records. Exports include all matches.";
+            " matching records for " + selectedVariable.toUpperCase() + ". Exports include all variables.";
         const location = selection
             ? selection.name + " · "
             : selectedSites.length > 1

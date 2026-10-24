@@ -9,9 +9,9 @@ An oceanographic tracking and data analysis project monitoring coastal upwelling
 Coastal upwelling along the Northern Gulf of Guinea (specifically the Côte d'Ivoire-Ghana upwelling system) is a critical marine phenomenon. It regulates regional climate, drives primary biological productivity, and sustains local artisanal and industrial fisheries.
 
 <p align="center">
-  <img src="https://noaa.gov" alt="Upwelling Process Diagram" width="600"/>
+  <img src="images/image.jpeg" alt="Ghana EEZ Study Area Map" width="550"/>
   <br>
-  <em>Figure 1: Conceptual schematic of wind-driven coastal upwelling driving deep, nutrient-rich water to the surface.</em>
+  <em>Figure 2: Map of the study area along Ghana's Exclusive Economic Zone (EEZ) showing data collection nodes.</em>
 </p>
 
 ### 🔬 Core Methodologies

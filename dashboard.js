@@ -39,7 +39,7 @@
         }
         const site = siteFilter.value;
         return demo.records.filter(function (record) {
-            return (site === "all" || record.site === site) &&
+            return (!site || record.site === site) &&
                 record.date >= startInput.value &&
                 record.date <= endInput.value;
         }).sort(function (a, b) {
@@ -287,10 +287,6 @@
 
         const siteList = document.getElementById("site-list");
         siteList.replaceChildren();
-        const heading = document.createElement("p");
-        heading.className = "site-list-label";
-        heading.textContent = "Explore a community";
-        siteList.appendChild(heading);
         demo.sites.forEach(function (site) {
             const button = document.createElement("button");
             button.className = "site-button";
@@ -538,7 +534,7 @@
         drawingSnapshot = null;
         drawingMode = null;
         polygonDraft = [];
-        siteFilter.value = "all";
+        siteFilter.value = "";
         startInput.value = dates[0];
         endInput.value = dates[dates.length - 1];
         updateDrawingControls();
@@ -568,7 +564,7 @@
     document.getElementById("draw-point").addEventListener("click", function () {
         drawingSnapshot = drawingSnapshot || { selection: selection, site: siteFilter.value };
         selection = null;
-        siteFilter.value = "all";
+        siteFilter.value = "";
         drawingMode = "point";
         polygonDraft = [];
         updateDrawingControls();
@@ -577,7 +573,7 @@
     document.getElementById("draw-polygon").addEventListener("click", function () {
         drawingSnapshot = drawingSnapshot || { selection: selection, site: siteFilter.value };
         selection = null;
-        siteFilter.value = "all";
+        siteFilter.value = "";
         drawingMode = "polygon";
         polygonDraft = [];
         updateDrawingControls();

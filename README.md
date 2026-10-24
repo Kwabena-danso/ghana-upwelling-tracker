@@ -45,9 +45,30 @@ The tracking focusing on key coastal nodes where upwelling intensity historicall
 
 ## 🛠️ Data Sources & Tech Stack
 
-*   **Data Inputs:** ERA5 Reanalysis Wind Data, NOAA Sentinel/MODIS Sea Surface Temperature, and Copernicus Marine Service (CMEMS) Altimetry.
-*   **Language:** Python 🐍 / R 📊 *(Modify based on your choice)*
-*   **Libraries:** `xarray`, `pandas`, `numpy`, `matplotlib`, `cartopy`
+*   **Planned data inputs:** Copernicus Marine datasets selected and configured by the project user.
+*   **Language:** Python 🐍
+*   **Download library:** `copernicusmarine`
+
+## ⬇️ Raw Copernicus Marine Downloads
+
+`fetch_data.py` is a configurable scaffold for downloading raw NetCDF subsets. It does not select Copernicus products or variables, calculate CUTI/BEUTI, process files, or update the dashboard. Dataset IDs and exact variable names must be supplied in the configuration after they have been selected.
+
+1. Copy `copernicus_datasets.example.json` to `copernicus_datasets.local.json`.
+2. For each dataset entry, fill in its selected `dataset_id` and exact `variables` names from the Copernicus Marine catalogue. The Toolbox [`describe` command](https://toolbox-docs.marine.copernicus.eu/en/stable/usage/describe-usage.html) can look up catalogue metadata. Keep `name` unique; it determines the output filename.
+3. Install the Toolbox with `python -m pip install copernicusmarine` and set the `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD` environment variables.
+4. Run the downloader with the date range and bounding box you want:
+
+```sh
+python fetch_data.py \
+  --config copernicus_datasets.local.json \
+  --start-date YYYY-MM-DD \
+  --end-date YYYY-MM-DD \
+  --bbox WEST SOUTH EAST NORTH
+```
+
+The outputs are written to the ignored `raw_data/` directory as NetCDF files named from the configured dataset entries. Existing files are not overwritten unless `--overwrite` is supplied. The command validates dates and bounds and requires non-empty dataset IDs and variable lists; the Copernicus Marine Toolbox reports whether those IDs and names exist in the catalogue. A download failure exits with an error.
+
+The GitHub Actions workflow is manual-only and saves successful downloads as a 14-day artifact; it does not run the existing index-processing script. To use it, configure repository variable `COPERNICUS_DATASETS_JSON` with the same JSON structure as the example and repository secrets `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD`, then enter a date range and bounds when starting the workflow.
 
 ## 🖥️ Dashboard Interface
 

@@ -1,0 +1,29 @@
+{
+  "datasets": [
+    {
+      "name": "wind",
+      "dataset_id": null,
+      "variables": []
+    },
+    {
+      "name": "sea_surface_height",
+      "dataset_id": null,
+      "variables": []
+    },
+    {
+      "name": "nitrate",
+      "dataset_id": null,
+      "variables": []
+    },
+    {
+      "name": "sea_surface_temperature",
+      "dataset_id": null,
+      "variables": []
+    },
+    {
+      "name": "salinity",
+      "dataset_id": null,
+      "variables": []
+    }
+  ]
+}

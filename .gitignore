@@ -208,6 +208,10 @@ tempCodeRunnerFile.py
 # Ruff stuff:
 .ruff_cache/
 
+# Copernicus Marine downloads and local dataset configuration
+raw_data/
+copernicus_datasets.local.json
+
 # PyPI configuration file
 .pypirc
 

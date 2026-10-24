@@ -48,7 +48,7 @@ button { cursor: pointer; }
     align-items: center;
     gap: 11px;
     color: #fff;
-    font-size: 14px;
+    font-size: 18px;
     text-decoration: none;
     letter-spacing: -.02em;
 }
@@ -67,6 +67,10 @@ button { cursor: pointer; }
     font-size: 19px;
     font-weight: 700;
 }
+
+.topbar-nav { display: flex; align-items: center; gap: clamp(14px, 2.4vw, 30px); }
+.topbar-nav a { padding: 8px 0; color: rgba(255, 255, 255, .82); font-size: 12px; font-weight: 650; text-decoration: none; transition: color .15s ease; }
+.topbar-nav a:hover, .topbar-nav a:focus-visible { color: #fff; }
 
 main { display: flex; min-height: 0; flex: 1; flex-direction: column; padding: 8px 0; overflow: hidden; }
 
@@ -253,6 +257,11 @@ td:first-child { color: var(--navy); font-weight: 700; }
 
 @media (max-width: 600px) {
     .app-shell { padding: 0 16px; }
+    .topbar { gap: 10px; }
+    .brand { gap: 7px; font-size: 14px; }
+    .brand-mark { width: 30px; height: 30px; font-size: 17px; }
+    .topbar-nav { gap: 10px; }
+    .topbar-nav a { font-size: 10px; }
     .map-panel, .records-panel { padding: 15px 13px; }
     .map-panel { min-height: 300px; height: min(56vh, 440px); }
     .map-frame { min-height: 220px; }
@@ -267,6 +276,12 @@ td:first-child { color: var(--navy); font-weight: 700; }
     .export-actions { width: 100%; }
     .export-actions .button { flex: 1; }
     .footer { flex-direction: column; }
+}
+
+@media (max-width: 380px) {
+    .topbar-nav { gap: 8px; }
+    .topbar-nav a { font-size: 9px; }
+    .topbar-nav a:nth-child(2) { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

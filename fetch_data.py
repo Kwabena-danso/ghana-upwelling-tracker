@@ -110,8 +110,8 @@ def download_datasets(
     overwrite: bool = False,
 ) -> None:
     validate_request_range(start_date, end_date, bbox)
-    username = os.getenv("kwabena.danso@stu.ucc.edu.gh")
-    password = os.getenv("Hello-dan3694")
+    username = os.getenv("COPERNICUSMARINE_SERVICE_USERNAME")
+    password = os.getenv("COPERNICUSMARINE_SERVICE_PASSWORD")
     if not username or not password:
         raise ValueError(
             "Set COPERNICUSMARINE_SERVICE_USERNAME and COPERNICUSMARINE_SERVICE_PASSWORD "

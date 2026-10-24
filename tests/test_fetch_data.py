@@ -1,19 +1,38 @@
 import json
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from fetch_data import (
-    DatasetRequest,
-    download_datasets,
-    load_dataset_requests,
-    validate_request_range,
-)
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from ghana_upwelling.cli import DEFAULT_CONFIG, build_parser
+from ghana_upwelling.config import DatasetRequest, load_dataset_requests, validate_request_range
+from ghana_upwelling.download import download_datasets
 
 
 class FetchDataTests(unittest.TestCase):
+    def test_cli_defaults_to_packaged_inventory_and_raw_output_directory(self):
+        args = build_parser().parse_args(
+            [
+                "--start-date",
+                "1993-01-01T00:00:00",
+                "--end-date",
+                "2026-09-22T00:00:00",
+                "--bbox",
+                "-3.991005",
+                "1.006076",
+                "2.502319",
+                "6.510059",
+            ]
+        )
+
+        self.assertEqual(args.config, DEFAULT_CONFIG)
+        self.assertTrue(DEFAULT_CONFIG.is_file())
+        self.assertEqual(args.output_dir, Path("data") / "raw")
+
     def test_loads_configured_dataset_ids_and_variables(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             config_path = Path(temporary_directory) / "datasets.json"
@@ -83,8 +102,9 @@ class FetchDataTests(unittest.TestCase):
             ],
         )
 
-    def test_loads_configured_datasets_from_example_configuration(self):
-        requests = load_dataset_requests(Path("copernicus_datasets.example.json"))
+    def test_loads_configured_datasets_from_core_inventory(self):
+        config_path = Path(__file__).resolve().parents[1] / "src" / "ghana_upwelling" / "datasets.json"
+        requests = load_dataset_requests(config_path)
 
         self.assertEqual(
             requests,
@@ -114,6 +134,38 @@ class FetchDataTests(unittest.TestCase):
                     "cmems_mod_glo_phy_my_0.083deg_P1D-m",
                     ("so",),
                 ),
+            ],
+        )
+
+    def test_core_inventory_creates_one_named_output_per_request(self):
+        requests = load_dataset_requests(DEFAULT_CONFIG)
+        output_filenames = []
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            with patch.dict(
+                os.environ,
+                {
+                    "COPERNICUSMARINE_SERVICE_USERNAME": "test-user",
+                    "COPERNICUSMARINE_SERVICE_PASSWORD": "test-password",
+                },
+            ):
+                download_datasets(
+                    requests,
+                    "1993-01-01T00:00:00",
+                    "2026-09-22T00:00:00",
+                    [-3.991005, 1.006076, 2.502319, 6.510059],
+                    Path(temporary_directory),
+                    subset_function=lambda **kwargs: output_filenames.append(kwargs["output_filename"]),
+                )
+
+        self.assertEqual(
+            output_filenames,
+            [
+                "wind.nc",
+                "sea_surface_height.nc",
+                "nitrate.nc",
+                "sea_surface_temperature.nc",
+                "salinity.nc",
             ],
         )
 

@@ -49,8 +49,8 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Copernicus Marine Toolbox
-        run: python -m pip install copernicusmarine
+      - name: Install project and Copernicus Marine Toolbox
+        run: python -m pip install .
 
       - name: Download configured raw datasets
         env:
@@ -63,8 +63,7 @@ jobs:
           MAXIMUM_LONGITUDE: ${{ inputs.maximum_longitude }}
           MAXIMUM_LATITUDE: ${{ inputs.maximum_latitude }}
         run: |
-          python fetch_data.py \
-            --config copernicus_datasets.example.json \
+          python -m ghana_upwelling \
             --start-date "$START_DATE" \
             --end-date "$END_DATE" \
             --bbox "$MINIMUM_LONGITUDE" "$MINIMUM_LATITUDE" "$MAXIMUM_LONGITUDE" "$MAXIMUM_LATITUDE"
@@ -73,6 +72,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: copernicus-raw-data
-          path: raw_data/*.nc
+          path: data/raw/*.nc
           if-no-files-found: error
           retention-days: 14

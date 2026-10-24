@@ -211,6 +211,8 @@ tempCodeRunnerFile.py
 # Copernicus Marine downloads and local dataset configuration
 raw_data/
 copernicus_datasets.local.json
+data/raw/
+data/processed/
 
 # PyPI configuration file
 .pypirc

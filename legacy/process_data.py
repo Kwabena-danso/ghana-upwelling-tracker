@@ -1,3 +1,5 @@
+"""Legacy exploratory index calculations; not part of the raw-data pipeline."""
+
 import os
 import json
 import numpy as np

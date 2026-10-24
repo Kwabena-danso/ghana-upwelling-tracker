@@ -45,30 +45,30 @@ The tracking focusing on key coastal nodes where upwelling intensity historicall
 
 ## 🛠️ Data Sources & Tech Stack
 
-*   **Planned data inputs:** Copernicus Marine datasets selected and configured by the project user.
+*   **Core inputs:** Copernicus Marine wind, sea-surface height, nitrate, chlorophyll, phosphate, sea-surface temperature, and salinity.
 *   **Language:** Python 🐍
+*   **Project packaging:** `pyproject.toml`
 *   **Download library:** `copernicusmarine`
 
 ## ⬇️ Raw Copernicus Marine Downloads
 
-`fetch_data.py` is a configurable scaffold for downloading raw NetCDF subsets. It does not select Copernicus products or variables, calculate CUTI/BEUTI, process files, or update the dashboard. Dataset IDs and exact variable names must be supplied in the configuration after they have been selected.
+The five core requests are maintained in the packaged inventory `src/ghana_upwelling/datasets.json`: wind, sea-surface height, nitrate/biogeochemistry, sea-surface temperature, and salinity. Temperature, salinity, and sea-surface-height requests use different variables from the same Copernicus physics dataset and are saved as separate named files.
 
-1. Copy `copernicus_datasets.example.json` to `copernicus_datasets.local.json`. The wind, sea-surface-height, biogeochemistry, SST, and salinity entries are prefilled with the dataset IDs and variables you supplied. SST (`thetao`), salinity (`so`), and sea-surface height (`zos`, with `mlotst`) are separate requests and output files, even though they share the same Copernicus physics dataset ID.
-2. Unconfigured entries with `dataset_id: null` and an empty `variables` list are skipped. For any dataset you want to download, fill in its selected `dataset_id` and exact variable names from the Copernicus Marine catalogue. The Toolbox [`describe` command](https://toolbox-docs.marine.copernicus.eu/en/stable/usage/describe-usage.html) can look up catalogue metadata. Keep `name` unique; it determines the output filename.
-3. Install the Toolbox with `python -m pip install copernicusmarine` and set the `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD` environment variables.
-4. Run the downloader with the date range and bounding box you want:
+Install the project and its downloader dependency, then set `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD` in the environment:
 
 ```sh
-python fetch_data.py \
-  --config copernicus_datasets.local.json \
+python -m pip install -e .
+python -m ghana_upwelling \
   --start-date 1993-01-01T00:00:00 \
   --end-date 2026-09-22T00:00:00 \
-  --bbox WEST SOUTH EAST NORTH
+  --bbox -3.991005 1.006076 2.502319 6.510059
 ```
 
-The date options accept ISO 8601 dates or timestamps. The GitHub Actions workflow is prefilled with bounds `-3.991005 1.006076 2.502319 6.510059` and the date range shown above; you can edit these when starting it. The outputs are written to the ignored `raw_data/` directory as NetCDF files named from the configured dataset entries. Existing files are not overwritten unless `--overwrite` is supplied. At least one dataset must have a non-empty ID and variable list; the Copernicus Marine Toolbox reports whether those IDs and names exist in the catalogue. A download failure exits with an error.
+`--config` defaults to the checked-in core dataset inventory, and `--output-dir` defaults to `data/raw/`. Each request is saved separately as `<name>.nc`; the selected interval and geographic bounds are supplied at run time. Use `--overwrite` to replace existing files. The root-level `fetch_data.py` entry point remains available for compatibility.
 
-The GitHub Actions workflow is manual-only and reads `copernicus_datasets.example.json`, saving successful downloads as a 14-day artifact; it does not run the existing index-processing script. Configure repository secrets `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD`, then start the workflow with the prefilled or edited date range and bounds. Any dataset entries still left unconfigured are skipped.
+The GitHub Actions workflow is manual-only, uses the same dataset inventory, and saves downloads as a 14-day artifact. Configure the two Copernicus credentials as repository secrets and start the workflow with the desired interval and bounds.
+
+The current pipeline only acquires raw data. `legacy/process_data.py` contains earlier, unvalidated index calculations and is not called by the workflow. Raw downloads are not yet processed into indices or connected to the dashboard's explicitly synthetic sample data.
 
 ## 🖥️ Dashboard Interface
 
@@ -81,13 +81,19 @@ On desktop, the map remains fixed in the main workspace while the exploration pa
 ## 📂 Repository Structure
 
 ```text
-├── data/               # Raw and processed SST/Wind time-series data
-├── src/                # Codebase for calculating CUTI and BEAUTI indexes
-│   ├── processing.py   # NetCDF spatial clipping and data extraction
-│   └── indices.py      # Mathematical implementations of CUTI/BEAUTI formulas
-├── notebooks/          # Jupyter notebooks for visual analysis and trend plotting
-├── figures/            # Generated plots, maps, and anomaly graphs
-└── README.md           # Project documentation
+├── data/
+│   ├── raw/                       # Downloaded NetCDF files (not committed)
+│   └── processed/                 # Reserved for validated derived products
+├── src/ghana_upwelling/
+│   ├── datasets.json              # Packaged core dataset request inventory
+│   ├── config.py                  # Request loading and validation
+│   ├── download.py                # Copernicus Marine subset downloads
+│   └── cli.py                     # Command-line interface and defaults
+├── tests/                         # Downloader and configuration tests
+├── .github/workflows/             # Manual raw-data download workflow
+├── fetch_data.py                  # Compatibility entry point
+├── legacy/process_data.py         # Legacy, unvalidated calculations; not in pipeline
+└── README.md
 ```
 
 ---

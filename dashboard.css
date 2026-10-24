@@ -48,7 +48,7 @@ button { cursor: pointer; }
     align-items: center;
     gap: 11px;
     color: #fff;
-    font-size: 18px;
+    font-size: 21px;
     text-decoration: none;
     letter-spacing: -.02em;
 }
@@ -258,7 +258,7 @@ td:first-child { color: var(--navy); font-weight: 700; }
 @media (max-width: 600px) {
     .app-shell { padding: 0 16px; }
     .topbar { gap: 10px; }
-    .brand { gap: 7px; font-size: 14px; }
+    .brand { gap: 7px; font-size: 15px; }
     .brand-mark { width: 30px; height: 30px; font-size: 17px; }
     .topbar-nav { gap: 10px; }
     .topbar-nav a { font-size: 10px; }

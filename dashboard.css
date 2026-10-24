@@ -61,8 +61,8 @@ button { cursor: pointer; }
     width: 34px;
     height: 34px;
     border-radius: 10px;
-    background: var(--teal);
-    color: #fff;
+    background: #fff;
+    color: var(--teal-dark);
     font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
     font-size: 21px;
     line-height: 1;

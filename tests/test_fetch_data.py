@@ -58,9 +58,9 @@ class FetchDataTests(unittest.TestCase):
                     {
                         "datasets": [
                             {
-                                "name": "sea_surface_height",
+                                "name": "physics",
                                 "dataset_id": "cmems_mod_glo_phy_my_0.083deg_P1D-m",
-                                "variables": ["mlotst", "zos"],
+                                "variables": ["mlotst", "zos", "thetao", "so"],
                             },
                             {"name": "wind", "dataset_id": None, "variables": []},
                             {"name": "nitrate", "dataset_id": None, "variables": []},
@@ -76,9 +76,9 @@ class FetchDataTests(unittest.TestCase):
             requests,
             [
                 DatasetRequest(
-                    "sea_surface_height",
+                    "physics",
                     "cmems_mod_glo_phy_my_0.083deg_P1D-m",
-                    ("mlotst", "zos"),
+                    ("mlotst", "zos", "thetao", "so"),
                 )
             ],
         )
@@ -95,9 +95,9 @@ class FetchDataTests(unittest.TestCase):
                     ("eastward_wind", "northward_wind"),
                 ),
                 DatasetRequest(
-                    "sea_surface_height",
+                    "physics",
                     "cmems_mod_glo_phy_my_0.083deg_P1D-m",
-                    ("mlotst", "zos"),
+                    ("mlotst", "zos", "thetao", "so"),
                 ),
                 DatasetRequest(
                     "nitrate",

@@ -6,9 +6,9 @@
       "variables": ["eastward_wind", "northward_wind"]
     },
     {
-      "name": "sea_surface_height",
+      "name": "physics",
       "dataset_id": "cmems_mod_glo_phy_my_0.083deg_P1D-m",
-      "variables": ["mlotst", "zos"]
+      "variables": ["mlotst", "zos", "thetao", "so"]
     },
     {
       "name": "nitrate",
@@ -17,11 +17,6 @@
     },
     {
       "name": "sea_surface_temperature",
-      "dataset_id": null,
-      "variables": []
-    },
-    {
-      "name": "salinity",
       "dataset_id": null,
       "variables": []
     }

@@ -1,0 +1,58 @@
+name: Automated Upwelling Tracker
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at midnight
+  workflow_dispatch: # Allows manual trigger
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository Code
+      uses: actions/checkout@v4
+
+    - name: Initialize Python Environment
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+        cache: 'pip'
+
+    - name: Install Oceanographic Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install copernicusmarine xarray netcdf4 numpy pandas
+
+    - name: Fetch Remote Copernicus Marine Data
+      env:
+        CMS_USERNAME: ${{ secrets.CMS_USERNAME }}
+        CMS_PASSWORD: ${{ secrets.CMS_PASSWORD }}
+      run: python fetch_data.py
+
+    - name: Compute CUTI & BEUTI Ocean Indices
+      run: python process_data.py
+
+    - name: Commit and Save Calculations
+      run: |
+        git config --global user.name "Ghana Upwelling System Bot"
+        git config --global user.email "upwelling-bot@github.com"
+        if ! git diff --exit-code data.json; then
+          git add data.json
+          git commit -m "Automated update: Added recent upwelling and nitrate data [$(date -u)]"
+          git push
+        else
+          echo "No modifications found."
+        fi
+
+    - name: Setup GitHub Pages Infrastructure
+      uses: actions/configure-pages@v4
+    - name: Package Web Space Bundle
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: '.'
+    - name: Deploy Portal to GitHub Pages
+      uses: actions/deploy-pages@v4

@@ -1,2 +1,74 @@
-# Ghana-upwelling-tracker
-Tracking upwelling activities along Ghana's Exclusive Economic Zone
+# 🌊 Ghana Upwelling Tracker 🇬🇭
+
+An oceanographic tracking and data analysis project monitoring coastal upwelling dynamics along **Ghana's Exclusive Economic Zone (EEZ)** in the Gulf of Guinea. This project leverages the **CUTI (Coastal Upwelling Transport Index)** and **BEAUTI (Biologically Effective Upwelling Transport Index)** frameworks to measure physical water transport and biological ecosystem impacts.
+
+---
+
+## 📌 Project Overview
+
+Coastal upwelling along the Northern Gulf of Guinea (specifically the Côte d'Ivoire-Ghana upwelling system) is a critical marine phenomenon. It regulates regional climate, drives primary biological productivity, and sustains local artisanal and industrial fisheries.
+
+<p align="center">
+  <img src="https://noaa.gov" alt="Upwelling Process Diagram" width="600"/>
+  <br>
+  <em>Figure 1: Conceptual schematic of wind-driven coastal upwelling driving deep, nutrient-rich water to the surface.</em>
+</p>
+
+### 🔬 Core Methodologies
+This repository processes satellite, wind, and hydrodynamic data to calculate:
+*   **💨 CUTI (Coastal Upwelling Transport Index):** Quantifies the net vertical mass transport of water into the surface mixed layer, assessing the physical strength of the upwelling signal.
+*   **🐟 BEAUTI (Biologically Effective Upwelling Transport Index):** Factors in the nutrient concentration of the source water to calculate the actual nitrate/biological flux reaching the euphotic zone.
+
+---
+
+## 🗺️ Study Area: Ghana's EEZ
+
+The tracking focusing on key coastal nodes where upwelling intensity historically peaks due to orientation of the coastline and bathymetry:
+1.  **📍 Cape Three Points (Western Region):** The primary topographic upwelling center.
+2.  **📍 Takoradi & Accra Coastal Strips:** Areas heavily influenced by remote forcing and localized wind-stress curl.
+
+<p align="center">
+  <img src="https://researchgate.net" alt="Gulf of Guinea SST Map" width="550"/>
+  <br>
+  <em>Figure 2: Historical Sea Surface Temperature (SST) footprint detailing the distinct cold-water upwelling plumes across Côte d'Ivoire and Ghana.</em>
+</p>
+
+---
+
+## 🚀 Key Features
+
+*   📊 **Index Time-Series Parsing:** Automated pipelines to ingest and clean daily wind and sea surface temperature (SST) datasets.
+*   📈 **Anomaly Tracking:** Computes localized SST deviations and wind-stress anomalies against long-term climatologies.
+*   🐋 **Ecological Indicators:** Corregulates CUTI/BEAUTI outputs against local marine chlorophyll-a concentrations to estimate pelagic fish stock variability.
+
+---
+
+## 🛠️ Data Sources & Tech Stack
+
+*   **Data Inputs:** ERA5 Reanalysis Wind Data, NOAA Sentinel/MODIS Sea Surface Temperature, and Copernicus Marine Service (CMEMS) Altimetry.
+*   **Language:** Python 🐍 / R 📊 *(Modify based on your choice)*
+*   **Libraries:** `xarray`, `pandas`, `numpy`, `matplotlib`, `cartopy`
+
+---
+
+## 📂 Repository Structure
+
+```text
+├── data/               # Raw and processed SST/Wind time-series data
+├── src/                # Codebase for calculating CUTI and BEAUTI indexes
+│   ├── processing.py   # NetCDF spatial clipping and data extraction
+│   └── indices.py      # Mathematical implementations of CUTI/BEAUTI formulas
+├── notebooks/          # Jupyter notebooks for visual analysis and trend plotting
+├── figures/            # Generated plots, maps, and anomaly graphs
+└── README.md           # Project documentation
+```
+
+---
+
+## 📧 Contact & Contributions
+
+Contributions, feedback, and collaboration from physical oceanographers, marine biologists, and data scientists are welcome! Please open an issue or submit a pull request. 
+
+🔬 **Author/Researcher:** [Your Name/GitHub Handle]
+🇬🇭 **Focus Region:** Gulf of Guinea (Ecosystem Sub-division 34)
+

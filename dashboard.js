@@ -8,10 +8,12 @@
     const recordsBody = document.getElementById("records-body");
     const emptyState = document.getElementById("empty-state");
     const dates = Array.from(new Set(demo.records.map(function (record) { return record.date; }))).sort();
+    const initialRecordCount = 5;
     let selection = null;
     let drawingMode = null;
     let polygonDraft = [];
     let drawingSnapshot = null;
+    let visibleRecordCount = initialRecordCount;
 
     demo.sites.forEach(function (site) {
         const option = document.createElement("option");
@@ -370,9 +372,9 @@
         const rows = records.slice().sort(function (a, b) {
             return b.date.localeCompare(a.date) || a.site.localeCompare(b.site);
         });
-        rows.forEach(function (record) {
+        rows.slice(0, visibleRecordCount).forEach(function (record) {
             const row = document.createElement("tr");
-            [formatDate(record.date), record.site, record.latitude.toFixed(2), record.longitude.toFixed(2)].forEach(function (value) {
+            [formatDate(record.date), record.site].forEach(function (value) {
                 const cell = document.createElement("td");
                 cell.textContent = value;
                 row.appendChild(cell);
@@ -388,6 +390,13 @@
             recordsBody.appendChild(row);
         });
         emptyState.hidden = rows.length > 0;
+        const moreButton = document.getElementById("show-more-records");
+        const remainingRecords = rows.length - visibleRecordCount;
+        moreButton.hidden = remainingRecords <= 0;
+        moreButton.textContent = "Show 5 more (" + remainingRecords + " remaining)";
+        document.getElementById("records-caption").textContent = "Showing " +
+            Math.min(visibleRecordCount, rows.length) + " of " + rows.length +
+            " matching records. Exports include all matches.";
         const location = selection ? selection.name + " · " : "";
         document.getElementById("filter-summary").textContent = location + records.length + " demo records · " +
             (records.length ? formatDate(records[0].date) + " – " + formatDate(records[records.length - 1].date) : "no matching dates");
@@ -418,6 +427,7 @@
     }
 
     function render() {
+        visibleRecordCount = initialRecordCount;
         const records = selectedRecords();
         document.getElementById("records-title").textContent = selection
             ? (selection.type === "point" ? "Point sample records" : "Polygon average records")
@@ -468,6 +478,10 @@
     });
     document.getElementById("export-csv").addEventListener("click", function () { exportRecords("csv"); });
     document.getElementById("export-json").addEventListener("click", function () { exportRecords("json"); });
+    document.getElementById("show-more-records").addEventListener("click", function () {
+        visibleRecordCount += initialRecordCount;
+        renderTable(selectedRecords());
+    });
     document.getElementById("reset-filters").addEventListener("click", function () {
         selection = null;
         drawingSnapshot = null;

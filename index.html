@@ -20,18 +20,6 @@
         </header>
 
         <main>
-            <section class="intro">
-                <div>
-                    <p class="eyebrow">GULF OF GUINEA · GHANA COAST</p>
-                    <h1>Upwelling, in context.</h1>
-                    <p class="intro-copy">Explore physical transport and biological response across coastal sites and time.</p>
-                </div>
-                <div class="demo-notice" role="note">
-                    <span class="notice-icon" aria-hidden="true">i</span>
-                    <p><strong>Demonstration only.</strong> Values below are synthetic examples, not Copernicus observations or calculated CUTI/BEUTI. The map's raster and community points are illustrative only; no EEZ boundary is displayed.</p>
-                </div>
-            </section>
-
             <div class="explorer-layout">
                 <section class="panel map-panel" aria-labelledby="map-title">
                     <div class="panel-heading">
@@ -135,7 +123,7 @@
                             <div>
                                 <p class="eyebrow">UNDERLYING VALUES</p>
                                 <h2 id="records-title">Raw demonstration records</h2>
-                                <p class="panel-subtitle">One row per site and date. Exports reflect the active filters.</p>
+                                <p class="panel-subtitle" id="records-caption"></p>
                             </div>
                             <div class="export-actions">
                                 <button class="button button-quiet" id="export-csv" type="button">Download CSV</button>
@@ -145,11 +133,12 @@
                         <div class="table-scroll">
                             <table>
                                 <thead>
-                                    <tr><th scope="col">Date</th><th scope="col">Community</th><th scope="col">Latitude</th><th scope="col">Longitude</th><th scope="col">CUTI <span>(demo)</span></th><th scope="col">BEUTI <span>(demo)</span></th></tr>
+                                    <tr><th scope="col">Date</th><th scope="col">Location</th><th scope="col">CUTI <span>(demo)</span></th><th scope="col">BEUTI <span>(demo)</span></th></tr>
                                 </thead>
                                 <tbody id="records-body"></tbody>
                             </table>
                             <p class="empty-state" id="empty-state" hidden>No records match these filters. Adjust the dates or select another community.</p>
+                            <button class="button button-quiet show-more-button" id="show-more-records" type="button" hidden></button>
                         </div>
                     </section>
                 </aside>

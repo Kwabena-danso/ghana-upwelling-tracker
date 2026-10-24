@@ -83,7 +83,7 @@ class FetchDataTests(unittest.TestCase):
             ],
         )
 
-    def test_loads_wind_and_sea_surface_height_from_example_configuration(self):
+    def test_loads_configured_datasets_from_example_configuration(self):
         requests = load_dataset_requests(Path("copernicus_datasets.example.json"))
 
         self.assertEqual(
@@ -98,6 +98,11 @@ class FetchDataTests(unittest.TestCase):
                     "sea_surface_height",
                     "cmems_mod_glo_phy_my_0.083deg_P1D-m",
                     ("mlotst", "zos"),
+                ),
+                DatasetRequest(
+                    "nitrate",
+                    "cmems_mod_glo_bgc_my_0.25deg_P1D-m",
+                    ("no3", "chl", "po4"),
                 ),
             ],
         )

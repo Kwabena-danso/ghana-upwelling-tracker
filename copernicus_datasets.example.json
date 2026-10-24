@@ -12,8 +12,8 @@
     },
     {
       "name": "nitrate",
-      "dataset_id": null,
-      "variables": []
+      "dataset_id": "cmems_mod_glo_bgc_my_0.25deg_P1D-m",
+      "variables": ["no3", "chl", "po4"]
     },
     {
       "name": "sea_surface_temperature",

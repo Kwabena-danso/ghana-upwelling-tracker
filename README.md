@@ -53,8 +53,8 @@ The tracking focusing on key coastal nodes where upwelling intensity historicall
 
 `fetch_data.py` is a configurable scaffold for downloading raw NetCDF subsets. It does not select Copernicus products or variables, calculate CUTI/BEUTI, process files, or update the dashboard. Dataset IDs and exact variable names must be supplied in the configuration after they have been selected.
 
-1. Copy `copernicus_datasets.example.json` to `copernicus_datasets.local.json`.
-2. For each dataset entry, fill in its selected `dataset_id` and exact `variables` names from the Copernicus Marine catalogue. The Toolbox [`describe` command](https://toolbox-docs.marine.copernicus.eu/en/stable/usage/describe-usage.html) can look up catalogue metadata. Keep `name` unique; it determines the output filename.
+1. Copy `copernicus_datasets.example.json` to `copernicus_datasets.local.json`. The sea-surface-height entry is prefilled with the dataset ID and variables you supplied (`mlotst` and `zos`).
+2. Unconfigured entries with `dataset_id: null` and an empty `variables` list are skipped. For any dataset you want to download, fill in its selected `dataset_id` and exact variable names from the Copernicus Marine catalogue. The Toolbox [`describe` command](https://toolbox-docs.marine.copernicus.eu/en/stable/usage/describe-usage.html) can look up catalogue metadata. Keep `name` unique; it determines the output filename.
 3. Install the Toolbox with `python -m pip install copernicusmarine` and set the `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD` environment variables.
 4. Run the downloader with the date range and bounding box you want:
 
@@ -66,9 +66,9 @@ python fetch_data.py \
   --bbox WEST SOUTH EAST NORTH
 ```
 
-The date options accept ISO 8601 dates or timestamps. The GitHub Actions workflow is prefilled with bounds `-3.991005 1.006076 2.502319 6.510059` and the date range shown above; you can edit these when starting it. The outputs are written to the ignored `raw_data/` directory as NetCDF files named from the configured dataset entries. Existing files are not overwritten unless `--overwrite` is supplied. The command validates dates and bounds and requires non-empty dataset IDs and variable lists; the Copernicus Marine Toolbox reports whether those IDs and names exist in the catalogue. A download failure exits with an error.
+The date options accept ISO 8601 dates or timestamps. The GitHub Actions workflow is prefilled with bounds `-3.991005 1.006076 2.502319 6.510059` and the date range shown above; you can edit these when starting it. The outputs are written to the ignored `raw_data/` directory as NetCDF files named from the configured dataset entries. Existing files are not overwritten unless `--overwrite` is supplied. At least one dataset must have a non-empty ID and variable list; the Copernicus Marine Toolbox reports whether those IDs and names exist in the catalogue. A download failure exits with an error.
 
-The GitHub Actions workflow is manual-only and saves successful downloads as a 14-day artifact; it does not run the existing index-processing script. To use it, configure repository variable `COPERNICUS_DATASETS_JSON` with the same JSON structure as the example and repository secrets `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD`, then start the workflow with the prefilled or edited date range and bounds.
+The GitHub Actions workflow is manual-only and reads `copernicus_datasets.example.json`, saving successful downloads as a 14-day artifact; it does not run the existing index-processing script. Configure repository secrets `COPERNICUSMARINE_SERVICE_USERNAME` and `COPERNICUSMARINE_SERVICE_PASSWORD`, then start the workflow with the prefilled or edited date range and bounds. Any dataset entries still left unconfigured are skipped.
 
 ## 🖥️ Dashboard Interface
 

@@ -47,7 +47,51 @@ class FetchDataTests(unittest.TestCase):
                 encoding="utf-8",
             )
 
-            with self.assertRaisesRegex(ValueError, "selected Copernicus dataset ID"):
+            with self.assertRaisesRegex(ValueError, "at least one dataset ID"):
+                load_dataset_requests(config_path)
+
+    def test_uses_configured_dataset_and_skips_unconfigured_placeholders(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            config_path = Path(temporary_directory) / "datasets.json"
+            config_path.write_text(
+                json.dumps(
+                    {
+                        "datasets": [
+                            {
+                                "name": "sea_surface_height",
+                                "dataset_id": "cmems_mod_glo_phy_my_0.083deg_P1D-m",
+                                "variables": ["mlotst", "zos"],
+                            },
+                            {"name": "wind", "dataset_id": None, "variables": []},
+                            {"name": "nitrate", "dataset_id": None, "variables": []},
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            requests = load_dataset_requests(config_path)
+
+        self.assertEqual(
+            requests,
+            [
+                DatasetRequest(
+                    "sea_surface_height",
+                    "cmems_mod_glo_phy_my_0.083deg_P1D-m",
+                    ("mlotst", "zos"),
+                )
+            ],
+        )
+
+    def test_rejects_partially_configured_dataset(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            config_path = Path(temporary_directory) / "datasets.json"
+            config_path.write_text(
+                json.dumps({"datasets": [{"name": "wind", "dataset_id": None, "variables": ["u10"]}]}),
+                encoding="utf-8",
+            )
+
+            with self.assertRaisesRegex(ValueError, "dataset_id is required"):
                 load_dataset_requests(config_path)
 
     def test_validates_dates_and_bounding_box(self):

@@ -44,22 +44,29 @@ def load_dataset_requests(config_path: Path) -> list[DatasetRequest]:
             raise ValueError(f"{location}.name must contain only letters, numbers, underscores, or hyphens.")
         if name in names:
             raise ValueError(f"Dataset name '{name}' is repeated; names must be unique.")
+        names.add(name)
 
         dataset_id = item.get("dataset_id")
-        if not isinstance(dataset_id, str) or not dataset_id.strip():
-            raise ValueError(f"{location}.dataset_id is required; add the selected Copernicus dataset ID.")
-
         variables = item.get("variables")
-        if not isinstance(variables, list) or not variables or any(
+        if not isinstance(variables, list) or any(
             not isinstance(variable, str) or not variable.strip() for variable in variables
         ):
-            raise ValueError(f"{location}.variables must be a non-empty list of exact variable names.")
+            raise ValueError(f"{location}.variables must be a list of exact variable names.")
         variables = [variable.strip() for variable in variables]
         if len(set(variables)) != len(variables):
             raise ValueError(f"{location}.variables must not contain duplicates.")
 
-        names.add(name)
+        if dataset_id is None and not variables:
+            continue
+        if not isinstance(dataset_id, str) or not dataset_id.strip():
+            raise ValueError(f"{location}.dataset_id is required when variables are configured.")
+        if not variables:
+            raise ValueError(f"{location}.variables must be non-empty when a dataset ID is configured.")
+
         requests.append(DatasetRequest(name, dataset_id.strip(), tuple(variables)))
+
+    if not requests:
+        raise ValueError("Configure at least one dataset ID and its variables before downloading.")
 
     return requests
 

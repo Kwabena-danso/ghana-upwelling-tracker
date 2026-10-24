@@ -7,8 +7,8 @@
     },
     {
       "name": "sea_surface_height",
-      "dataset_id": null,
-      "variables": []
+      "dataset_id": "cmems_mod_glo_phy_my_0.083deg_P1D-m",
+      "variables": ["mlotst", "zos"]
     },
     {
       "name": "nitrate",

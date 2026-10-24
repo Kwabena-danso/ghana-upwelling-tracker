@@ -56,7 +56,6 @@ jobs:
         env:
           COPERNICUSMARINE_SERVICE_USERNAME: ${{ secrets.COPERNICUSMARINE_SERVICE_USERNAME }}
           COPERNICUSMARINE_SERVICE_PASSWORD: ${{ secrets.COPERNICUSMARINE_SERVICE_PASSWORD }}
-          COPERNICUS_DATASETS_JSON: ${{ vars.COPERNICUS_DATASETS_JSON }}
           START_DATE: ${{ inputs.start_date }}
           END_DATE: ${{ inputs.end_date }}
           MINIMUM_LONGITUDE: ${{ inputs.minimum_longitude }}
@@ -64,13 +63,8 @@ jobs:
           MAXIMUM_LONGITUDE: ${{ inputs.maximum_longitude }}
           MAXIMUM_LATITUDE: ${{ inputs.maximum_latitude }}
         run: |
-          if [ -z "$COPERNICUS_DATASETS_JSON" ]; then
-            echo "Repository variable COPERNICUS_DATASETS_JSON must contain the configured datasets JSON."
-            exit 1
-          fi
-          printf '%s' "$COPERNICUS_DATASETS_JSON" > copernicus-datasets.json
           python fetch_data.py \
-            --config copernicus-datasets.json \
+            --config copernicus_datasets.example.json \
             --start-date "$START_DATE" \
             --end-date "$END_DATE" \
             --bbox "$MINIMUM_LONGITUDE" "$MINIMUM_LATITUDE" "$MAXIMUM_LONGITUDE" "$MAXIMUM_LATITUDE"

@@ -91,8 +91,8 @@ class FetchDataTests(unittest.TestCase):
             [
                 DatasetRequest(
                     "wind",
-                    "cmems_obs-wind_glo_phy_my_l4_P1M",
-                    ("eastward_wind", "northward_wind", "wind_speed"),
+                    "cmems_obs-wind_glo_phy_my_l4_0.125deg_PT1H",
+                    ("eastward_wind", "northward_wind"),
                 ),
                 DatasetRequest(
                     "sea_surface_height",

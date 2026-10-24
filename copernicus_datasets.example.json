@@ -2,8 +2,8 @@
   "datasets": [
     {
       "name": "wind",
-      "dataset_id": "cmems_obs-wind_glo_phy_my_l4_P1M",
-      "variables": ["eastward_wind", "northward_wind", "wind_speed"]
+      "dataset_id": "cmems_obs-wind_glo_phy_my_l4_0.125deg_PT1H",
+      "variables": ["eastward_wind", "northward_wind"]
     },
     {
       "name": "sea_surface_height",

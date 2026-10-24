@@ -83,6 +83,25 @@ class FetchDataTests(unittest.TestCase):
             ],
         )
 
+    def test_loads_wind_and_sea_surface_height_from_example_configuration(self):
+        requests = load_dataset_requests(Path("copernicus_datasets.example.json"))
+
+        self.assertEqual(
+            requests,
+            [
+                DatasetRequest(
+                    "wind",
+                    "cmems_obs-wind_glo_phy_my_l4_P1M",
+                    ("eastward_wind", "northward_wind", "wind_speed"),
+                ),
+                DatasetRequest(
+                    "sea_surface_height",
+                    "cmems_mod_glo_phy_my_0.083deg_P1D-m",
+                    ("mlotst", "zos"),
+                ),
+            ],
+        )
+
     def test_rejects_partially_configured_dataset(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             config_path = Path(temporary_directory) / "datasets.json"

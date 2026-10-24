@@ -129,31 +129,31 @@
                             <p class="unit-note">Synthetic values · units pending methodology</p>
                         </article>
                     </section>
+
+                    <section class="panel records-panel" aria-labelledby="records-title">
+                        <div class="panel-heading records-heading">
+                            <div>
+                                <p class="eyebrow">UNDERLYING VALUES</p>
+                                <h2 id="records-title">Raw demonstration records</h2>
+                                <p class="panel-subtitle">One row per site and date. Exports reflect the active filters.</p>
+                            </div>
+                            <div class="export-actions">
+                                <button class="button button-quiet" id="export-csv" type="button">Download CSV</button>
+                                <button class="button button-primary" id="export-json" type="button">Download JSON</button>
+                            </div>
+                        </div>
+                        <div class="table-scroll">
+                            <table>
+                                <thead>
+                                    <tr><th scope="col">Date</th><th scope="col">Community</th><th scope="col">Latitude</th><th scope="col">Longitude</th><th scope="col">CUTI <span>(demo)</span></th><th scope="col">BEUTI <span>(demo)</span></th></tr>
+                                </thead>
+                                <tbody id="records-body"></tbody>
+                            </table>
+                            <p class="empty-state" id="empty-state" hidden>No records match these filters. Adjust the dates or select another community.</p>
+                        </div>
+                    </section>
                 </aside>
             </div>
-
-            <section class="panel records-panel" aria-labelledby="records-title">
-                <div class="panel-heading records-heading">
-                    <div>
-                        <p class="eyebrow">UNDERLYING VALUES</p>
-                        <h2 id="records-title">Raw demonstration records</h2>
-                        <p class="panel-subtitle">One row per site and date. Exports reflect the active filters.</p>
-                    </div>
-                    <div class="export-actions">
-                        <button class="button button-quiet" id="export-csv" type="button">Download CSV</button>
-                        <button class="button button-primary" id="export-json" type="button">Download JSON</button>
-                    </div>
-                </div>
-                <div class="table-scroll">
-                    <table>
-                        <thead>
-                            <tr><th scope="col">Date</th><th scope="col">Community</th><th scope="col">Latitude</th><th scope="col">Longitude</th><th scope="col">CUTI <span>(demo)</span></th><th scope="col">BEUTI <span>(demo)</span></th></tr>
-                        </thead>
-                        <tbody id="records-body"></tbody>
-                    </table>
-                    <p class="empty-state" id="empty-state" hidden>No records match these filters. Adjust the dates or select another site.</p>
-                </div>
-            </section>
         </main>
 
         <footer class="footer">

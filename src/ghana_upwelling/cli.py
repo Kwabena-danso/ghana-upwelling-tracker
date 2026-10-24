@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Callable, Sequence
 
-from .config import load_dataset_requests, validate_request_range
+from .config import load_dataset_requests, select_dataset_requests, validate_request_range
 from .download import download_datasets
 
 DEFAULT_CONFIG = Path(__file__).resolve().with_name("datasets.json")
@@ -39,6 +39,11 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Download destination (default: {DEFAULT_OUTPUT_DIRECTORY}).",
     )
     parser.add_argument(
+        "--dataset-name",
+        action="append",
+        help="Download only this configured dataset name; repeat to select multiple requests.",
+    )
+    parser.add_argument(
         "--overwrite",
         action="store_true",
         help="Allow the Toolbox to overwrite files with the same output filename.",
@@ -49,7 +54,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None, subset_function: Callable[..., object] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        requests = load_dataset_requests(args.config)
+        requests = select_dataset_requests(
+            load_dataset_requests(args.config), args.dataset_name
+        )
         validate_request_range(args.start_date, args.end_date, args.bbox)
         download_datasets(
             requests,

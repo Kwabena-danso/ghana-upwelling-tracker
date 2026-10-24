@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Sequence
 
-from .config import load_dataset_requests
+from .config import load_dataset_requests, select_dataset_requests
 from .quality import create_quality_report
 
 DEFAULT_CONFIG = Path(__file__).resolve().with_name("datasets.json")
@@ -30,6 +30,11 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Directory containing raw NetCDF files (default: {DEFAULT_INPUT_DIRECTORY}).",
     )
     parser.add_argument(
+        "--dataset-name",
+        action="append",
+        help="Inspect only this configured dataset name; repeat to select multiple requests.",
+    )
+    parser.add_argument(
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT_FILE,
@@ -41,7 +46,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        requests = load_dataset_requests(args.config)
+        requests = select_dataset_requests(
+            load_dataset_requests(args.config), args.dataset_name
+        )
         report = create_quality_report(requests, args.input_dir, args.output)
     except (OSError, RuntimeError, ValueError) as error:
         print(f"Error: {error}", file=sys.stderr)

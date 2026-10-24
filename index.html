@@ -7,6 +7,7 @@
     <title>Ghana Upwelling Explorer</title>
     <link rel="stylesheet" href="dashboard.css">
     <script src="demo_data.js" defer></script>
+    <script src="data/processed/geostrophic_velocity.js" defer></script>
     <script src="dashboard.js" defer></script>
 </head>
 <body>
@@ -27,7 +28,7 @@
             <div class="explorer-layout">
                 <section class="panel map-panel" aria-label="Interactive map">
                     <div class="map-frame">
-                        <svg id="site-map" role="img" aria-label="Synthetic Ghana coastal data map with community locations"></svg>
+                        <svg id="site-map" role="img" aria-label="Ghana coastal data map with demonstration communities and optional Copernicus geostrophic current vectors"></svg>
                         <div class="map-variable-control">
                             <label for="map-variable">Variable</label>
                             <select id="map-variable" aria-label="Select map variable">
@@ -90,7 +91,9 @@
                         <div class="map-toggles" aria-label="Map layers">
                             <label><input id="raster-toggle" type="checkbox" checked> Raster layer <span>(demo)</span></label>
                             <label><input id="points-toggle" type="checkbox" checked> Community points</label>
+                            <label><input id="geostrophic-toggle" type="checkbox" disabled> Geostrophic current vectors <span>(Copernicus)</span></label>
                         </div>
+                        <p class="geostrophic-status" id="geostrophic-status" aria-live="polite">No processed Copernicus sea-surface-height snapshot loaded.</p>
                         <div class="raster-legend" id="raster-legend">
                             <p class="site-list-label" id="raster-legend-title">CUTI raster · demo</p>
                             <div class="raster-gradient" aria-hidden="true"></div>

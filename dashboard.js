@@ -2,6 +2,7 @@
     "use strict";
 
     const demo = window.GHANA_UPWELLING_DEMO;
+    const geostrophicData = window.GHANA_GEOSTROPHIC_VELOCITY || null;
     const communityOptions = document.getElementById("community-options");
     const communityPickerLabel = document.getElementById("community-picker-label");
     const startInput = document.getElementById("start-date");
@@ -10,7 +11,8 @@
     const emptyState = document.getElementById("empty-state");
     const dates = Array.from(new Set(demo.records.map(function (record) { return record.date; }))).sort();
     const initialRecordCount = 5;
-    const defaultMapView = { x: 0, y: 0, width: 700, height: 270 };
+    const mapPlot = { left: 60, right: 640, top: 35, bottom: 465 };
+    const defaultMapView = { x: 0, y: 0, width: 700, height: 500 };
     let mapView = { x: defaultMapView.x, y: defaultMapView.y, width: defaultMapView.width, height: defaultMapView.height };
     let selectedVariable = "cuti";
     let selection = null;
@@ -186,8 +188,8 @@
     }
 
     function mapPoint(site) {
-        const x = 60 + ((site.longitude - demo.raster.minLongitude) / (demo.raster.maxLongitude - demo.raster.minLongitude)) * 580;
-        const y = 226 - ((site.latitude - demo.raster.minLatitude) / (demo.raster.maxLatitude - demo.raster.minLatitude)) * 190;
+        const x = mapPlot.left + ((site.longitude - demo.raster.minLongitude) / (demo.raster.maxLongitude - demo.raster.minLongitude)) * (mapPlot.right - mapPlot.left);
+        const y = mapPlot.bottom - ((site.latitude - demo.raster.minLatitude) / (demo.raster.maxLatitude - demo.raster.minLatitude)) * (mapPlot.bottom - mapPlot.top);
         return { x: x, y: y };
     }
 
@@ -204,10 +206,10 @@
         const point = mapViewCoordinate(event);
         const x = point.x;
         const y = point.y;
-        if (x < 60 || x > 640 || y < 34 || y > 226) return null;
+        if (x < mapPlot.left || x > mapPlot.right || y < mapPlot.top || y > mapPlot.bottom) return null;
         return {
-            longitude: demo.raster.minLongitude + ((x - 60) / 580) * (demo.raster.maxLongitude - demo.raster.minLongitude),
-            latitude: demo.raster.minLatitude + ((226 - y) / 192) * (demo.raster.maxLatitude - demo.raster.minLatitude)
+            longitude: demo.raster.minLongitude + ((x - mapPlot.left) / (mapPlot.right - mapPlot.left)) * (demo.raster.maxLongitude - demo.raster.minLongitude),
+            latitude: demo.raster.minLatitude + ((mapPlot.bottom - y) / (mapPlot.bottom - mapPlot.top)) * (demo.raster.maxLatitude - demo.raster.minLatitude)
         };
     }
 
@@ -232,29 +234,66 @@
         const map = document.getElementById("site-map");
         const rasterVisible = document.getElementById("raster-toggle").checked;
         const pointsVisible = document.getElementById("points-toggle").checked;
+        const geostrophicToggle = document.getElementById("geostrophic-toggle");
+        const geostrophicVisible = Boolean(geostrophicData && geostrophicData.vectors.length && geostrophicToggle.checked);
         const raster = [];
         const rasterValues = demo.records.map(function (record) { return record[selectedVariable]; });
         const rasterMinimum = Math.min.apply(null, rasterValues);
         const rasterMaximum = Math.max.apply(null, rasterValues);
+        const rasterRange = rasterMaximum - rasterMinimum || 1;
         for (let row = 0; row < demo.raster.rows; row += 1) {
             for (let column = 0; column < demo.raster.columns; column += 1) {
-                const cellWidth = 580 / demo.raster.columns;
-                const cellHeight = 192 / demo.raster.rows;
+                const cellWidth = (mapPlot.right - mapPlot.left) / demo.raster.columns;
+                const cellHeight = (mapPlot.bottom - mapPlot.top) / demo.raster.rows;
                 const longitude = demo.raster.minLongitude + (column + 0.5) / demo.raster.columns *
                     (demo.raster.maxLongitude - demo.raster.minLongitude);
                 const latitude = demo.raster.maxLatitude - (row + 0.5) / demo.raster.rows *
                     (demo.raster.maxLatitude - demo.raster.minLatitude);
                 const rasterSample = sampleCell(longitude, latitude, dates.length - 1)[selectedVariable];
-                const value = (rasterSample - rasterMinimum) / (rasterMaximum - rasterMinimum);
-                raster.push('<rect class="raster-cell" x="' + (60 + column * cellWidth).toFixed(1) + '" y="' + (34 + row * cellHeight).toFixed(1) +
+                const value = (rasterSample - rasterMinimum) / rasterRange;
+                raster.push('<rect class="raster-cell" x="' + (mapPlot.left + column * cellWidth).toFixed(1) + '" y="' + (mapPlot.top + row * cellHeight).toFixed(1) +
                     '" width="' + cellWidth.toFixed(1) + '" height="' + cellHeight.toFixed(1) + '" fill="' + rasterColor(value) + '"></rect>');
             }
         }
-        const horizontalLines = [34, 98, 162, 226].map(function (y) {
-            return '<line class="map-grid-line" x1="60" y1="' + y + '" x2="640" y2="' + y + '"></line>';
+        const horizontalLines = [mapPlot.top, 142.5, 250, 357.5, mapPlot.bottom].map(function (y) {
+            return '<line class="map-grid-line" x1="' + mapPlot.left + '" y1="' + y + '" x2="' + mapPlot.right + '" y2="' + y + '"></line>';
         }).join("");
-        const verticalLines = [60, 205, 350, 495, 640].map(function (x) {
-            return '<line class="map-grid-line" x1="' + x + '" y1="34" x2="' + x + '" y2="226"></line>';
+        const verticalLines = [mapPlot.left, 205, 350, 495, mapPlot.right].map(function (x) {
+            return '<line class="map-grid-line" x1="' + x + '" y1="' + mapPlot.top + '" x2="' + x + '" y2="' + mapPlot.bottom + '"></line>';
+        }).join("");
+        const maximumSpeed = geostrophicData
+            ? geostrophicData.vectors.reduce(function (maximum, vector) { return Math.max(maximum, vector.speed); }, 0)
+            : 0;
+        const geostrophicVectors = geostrophicVisible ? geostrophicData.vectors.map(function (vector) {
+            const point = mapPoint(vector);
+            const length = 5 + 13 * Math.sqrt(vector.speed / (maximumSpeed || 1));
+            const direction = Math.atan2(-vector.northward, vector.eastward);
+            const endX = point.x + Math.cos(direction) * length;
+            const endY = point.y + Math.sin(direction) * length;
+            return '<line class="geostrophic-vector" x1="' + point.x.toFixed(1) + '" y1="' + point.y.toFixed(1) +
+                '" x2="' + endX.toFixed(1) + '" y2="' + endY.toFixed(1) +
+                '"><title>' + vector.speed.toFixed(3) + ' m/s · eastward ' + vector.eastward.toFixed(3) +
+                ' m/s · northward ' + vector.northward.toFixed(3) + ' m/s</title></line>';
+        }).join("") : "";
+        const longitudeLabels = [
+            { value: demo.raster.minLongitude, label: "3.99°W" },
+            { value: -2.368, label: "2.37°W" },
+            { value: -0.746, label: "0.75°W" },
+            { value: 0.878, label: "0.88°E" },
+            { value: demo.raster.maxLongitude, label: "2.50°E" }
+        ].map(function (item) {
+            const point = mapPoint({ longitude: item.value, latitude: demo.raster.minLatitude });
+            return '<text class="map-axis-label" x="' + point.x.toFixed(1) + '" y="487" text-anchor="middle">' + item.label + '</text>';
+        }).join("");
+        const latitudeLabels = [
+            { value: demo.raster.maxLatitude, label: "6.51°N" },
+            { value: 5.134, label: "5.13°N" },
+            { value: 3.758, label: "3.76°N" },
+            { value: 2.382, label: "2.38°N" },
+            { value: demo.raster.minLatitude, label: "1.01°N" }
+        ].map(function (item) {
+            const point = mapPoint({ longitude: demo.raster.minLongitude, latitude: item.value });
+            return '<text class="map-axis-label" x="10" y="' + (point.y + 3).toFixed(1) + '">' + item.label + '</text>';
         }).join("");
         const markers = demo.sites.map(function (site) {
             const point = mapPoint(site);
@@ -290,11 +329,17 @@
         map.classList.toggle("map-drawing", Boolean(drawingMode));
         document.getElementById("raster-legend-title").textContent = selectedVariable.toUpperCase() + " raster · demo";
         document.getElementById("site-list").hidden = Boolean(selection);
-        map.innerHTML = '<rect x="0" y="0" width="700" height="270" fill="#edf6f6"></rect>' +
+        geostrophicToggle.disabled = !geostrophicData || !geostrophicData.vectors.length;
+        document.getElementById("geostrophic-status").textContent = geostrophicData && geostrophicData.vectors.length
+            ? "Copernicus " + geostrophicData.date + " · " + geostrophicData.vectors.length +
+                " current vectors · |f| < " + Number(geostrophicData["minimum_coriolis_s-1"]).toExponential(1) + " s⁻¹ masked"
+            : "No processed Copernicus sea-surface-height snapshot loaded.";
+        map.innerHTML = '<defs><marker id="current-arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#143f72"></path></marker></defs>' +
+            '<rect x="0" y="0" width="700" height="500" fill="#edf6f6"></rect>' +
             (rasterVisible ? '<g class="raster-layer" aria-label="Synthetic demo raster covering the displayed coordinate extent">' + raster.join("") + '</g>' : "") +
             '<g class="map-grid">' + horizontalLines + verticalLines + '</g>' +
-            '<text class="map-axis-label" x="60" y="250">3°W</text><text class="map-axis-label" x="193" y="250">2°W</text><text class="map-axis-label" x="332" y="250">1°W</text><text class="map-axis-label" x="482" y="250">0°</text><text class="map-axis-label" x="618" y="250">1°E</text>' +
-            '<text class="map-axis-label" x="15" y="39">6.0°N</text><text class="map-axis-label" x="15" y="104">5.5°N</text><text class="map-axis-label" x="15" y="169">5.0°N</text><text class="map-axis-label" x="15" y="229">4.5°N</text>' +
+            longitudeLabels + latitudeLabels +
+            (geostrophicVisible ? '<g class="geostrophic-layer" aria-label="Copernicus sea-surface-height-derived geostrophic current vectors">' + geostrophicVectors + '</g>' : "") +
             (pointsVisible ? '<g class="points-layer">' + markers + '</g>' : "") +
             selectedFeature + draftFeature;
         map.querySelectorAll(".map-marker").forEach(function (marker) {
@@ -600,6 +645,7 @@
     [document.getElementById("raster-toggle"), document.getElementById("points-toggle")].forEach(function (input) {
         input.addEventListener("change", renderMap);
     });
+    document.getElementById("geostrophic-toggle").addEventListener("change", renderMap);
     document.getElementById("zoom-in").addEventListener("click", function () { zoomMap(1.4); });
     document.getElementById("zoom-out").addEventListener("click", function () { zoomMap(1 / 1.4); });
     document.getElementById("zoom-reset").addEventListener("click", function () {

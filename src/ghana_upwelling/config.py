@@ -68,6 +68,26 @@ def load_dataset_requests(config_path: Path) -> list[DatasetRequest]:
     return requests
 
 
+def select_dataset_requests(
+    requests: Sequence[DatasetRequest],
+    selected_names: Sequence[str] | None,
+) -> list[DatasetRequest]:
+    if not selected_names:
+        return list(requests)
+    configured_names = {request.name for request in requests}
+    unknown_names = sorted(set(selected_names) - configured_names)
+    if unknown_names:
+        raise ValueError(
+            "Unknown dataset name(s): "
+            + ", ".join(unknown_names)
+            + ". Configured names: "
+            + ", ".join(sorted(configured_names))
+            + "."
+        )
+    requested_names = set(selected_names)
+    return [request for request in requests if request.name in requested_names]
+
+
 def parse_datetime(value: str, argument_name: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))

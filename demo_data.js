@@ -16,12 +16,12 @@
     window.GHANA_UPWELLING_DEMO = {
         sites: sites,
         raster: {
-            minLongitude: -3,
-            maxLongitude: 1.2,
-            minLatitude: 4.5,
-            maxLatitude: 6,
-            columns: 16,
-            rows: 8
+            minLongitude: -3.991005,
+            maxLongitude: 2.502319,
+            minLatitude: 1.006076,
+            maxLatitude: 6.510059,
+            columns: 26,
+            rows: 22
         },
         records: sites.flatMap(function (site, siteIndex) {
             return dates.map(function (date, dayIndex) {

@@ -1,4 +1,5 @@
 import json
+import io
 import os
 import sys
 import tempfile
@@ -8,7 +9,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from ghana_upwelling.cli import DEFAULT_CONFIG, build_parser
+from ghana_upwelling.cli import DEFAULT_CONFIG, build_parser, main
 from ghana_upwelling.config import DatasetRequest, load_dataset_requests, validate_request_range
 from ghana_upwelling.download import download_datasets
 
@@ -32,6 +33,52 @@ class FetchDataTests(unittest.TestCase):
         self.assertEqual(args.config, DEFAULT_CONFIG)
         self.assertTrue(DEFAULT_CONFIG.is_file())
         self.assertEqual(args.output_dir, Path("data") / "raw")
+        self.assertIsNone(args.dataset_name)
+
+    def test_download_cli_can_select_only_sea_surface_height(self):
+        with patch("ghana_upwelling.cli.download_datasets") as download:
+            result = main(
+                [
+                    "--start-date",
+                    "1993-01-01T00:00:00",
+                    "--end-date",
+                    "1993-01-02T00:00:00",
+                    "--bbox",
+                    "-3.991005",
+                    "1.006076",
+                    "2.502319",
+                    "6.510059",
+                    "--dataset-name",
+                    "sea_surface_height",
+                ]
+            )
+
+        self.assertEqual(result, 0)
+        requests = download.call_args.args[0]
+        self.assertEqual([request.name for request in requests], ["sea_surface_height"])
+
+    def test_download_cli_rejects_unknown_dataset_selection(self):
+        with patch("ghana_upwelling.cli.download_datasets") as download:
+            with patch("sys.stderr", new_callable=io.StringIO) as stderr:
+                result = main(
+                    [
+                        "--start-date",
+                        "1993-01-01",
+                        "--end-date",
+                        "1993-01-02",
+                        "--bbox",
+                        "-4",
+                        "1",
+                        "2",
+                        "7",
+                        "--dataset-name",
+                        "unknown",
+                    ]
+                )
+
+        self.assertEqual(result, 1)
+        self.assertIn("Unknown dataset name", stderr.getvalue())
+        download.assert_not_called()
 
     def test_loads_configured_dataset_ids_and_variables(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -67,15 +67,30 @@ python -m ghana_upwelling \
 
 `--config` defaults to the checked-in core dataset inventory, and `--output-dir` defaults to `data/raw/`. Each request is saved separately as `<name>.nc`; the selected interval and geographic bounds are supplied at run time. Use `--overwrite` to replace existing files. The root-level `fetch_data.py` entry point remains available for compatibility.
 
-The GitHub Actions workflow is manual-only, uses the same dataset inventory, and saves downloads as a 14-day artifact. Configure the two Copernicus credentials as repository secrets and start the workflow with the desired interval and bounds.
+The GitHub Actions workflow is manual-only, defaults to downloading and processing sea-surface height, and can optionally process all configured datasets. It saves raw files, QC output, and derived velocity products as 14-day artifacts. Configure the two Copernicus credentials as repository secrets and start the workflow with the desired interval and bounds.
 
-After downloading, run `python -m ghana_upwelling.process` to check each configured NetCDF file and write `data/processed/quality_report.json`. The report inventories configured variables, units, dimensions, time coverage, and latitude/longitude extent; missing files, variables, or coordinate metadata are reported as failures. This first processing stage is read-only: it does not scan every data value, resample grids, calculate indices, or connect data to the dashboard. The manual GitHub Actions workflow runs this check and saves the report with the raw-data artifact. `legacy/process_data.py` contains earlier, unvalidated index calculations and is not called by the workflow.
+To download only the configured sea-surface-height request, append `--dataset-name sea_surface_height` to the fetch command. Then derive surface geostrophic velocities:
+
+```sh
+python -m ghana_upwelling \
+  --start-date 1993-01-01T00:00:00 \
+  --end-date 2026-09-22T00:00:00 \
+  --bbox -3.991005 1.006076 2.502319 6.510059 \
+  --dataset-name sea_surface_height
+python -m ghana_upwelling.geostrophic
+```
+
+The geostrophic command reads `data/raw/sea_surface_height.nc` and writes the full time series to `data/processed/geostrophic_velocity.nc`; it also writes a decimated latest-time vector snapshot to `data/processed/geostrophic_velocity.js`, which the dashboard loads when present. The calculation uses the surface geostrophic balance, `u_g = -(g/f) d(zos)/dy` and `v_g = (g/f) d(zos)/dx`. Grid cells with `|f| < 1e-5 s^-1` (approximately south of 3.9°N here) are set to missing values to avoid amplifying velocities near the equator; the threshold is configurable. This means part of the southern Ghana EEZ extent will have no geostrophic vectors. Review the output metadata and `zos` attributes to interpret its sea-level reference.
+
+This is an SSH-gradient geostrophic-velocity adaptation informed by Jacox et al. (2018), not a reproduction of CUTI/BEUTI. Their paper's CUTI uses cross-shore geostrophic transport from an alongshore coastal SSH gradient together with Ekman transport; the paper's indices are developed for the U.S. West Coast. The present output is a surface velocity field and does not calculate transport or an upwelling index. The configured coordinate rectangle is not itself a verified legal EEZ polygon.
+
+Separately, `python -m ghana_upwelling.process` checks each configured NetCDF file and writes `data/processed/quality_report.json`, inventorying variables, units, dimensions, time coverage, and spatial extent. Missing files, variables, or coordinates are reported as failures. This QC stage does not scan every data value, resample grids, or calculate indices. The manual GitHub Actions workflow runs QC and geostrophic processing and saves their outputs as 14-day artifacts; it does not automatically publish the generated snapshot to a hosted dashboard. `legacy/process_data.py` contains earlier, unvalidated index calculations and is not called by the workflow.
 
 ## 🖥️ Dashboard Interface
 
-The static dashboard in `index.html` provides a starting point for exploring a raster layer, coastal communities, time series, and underlying index records. Its current sample dataset is generated in `demo_data.js` and is **synthetic demonstration data only**; it is not sourced from Copernicus Marine and does not contain calculated CUTI/BEUTI observations. The map's raster, coordinate extent, and approximate community points are illustrative, not a real data-coverage footprint or Ghana EEZ boundary.
+The static dashboard in `index.html` provides a starting point for exploring a raster layer, coastal communities, time series, and underlying index records. Its CUTI/BEUTI sample dataset is generated in `demo_data.js` and is **synthetic demonstration data only**; it is not sourced from Copernicus Marine and does not contain calculated CUTI/BEUTI observations. When `data/processed/geostrophic_velocity.js` exists, the map can overlay the latest decimated Copernicus SSH-derived geostrophic current vectors. The map's raster, coordinate extent, and approximate community points are illustrative, not a verified Ghana EEZ boundary.
 
-On desktop, the map remains fixed in the main workspace while the exploration panel scrolls independently through filters, layers, charts, and raw records. Zoom with the map's plus/minus controls or the mouse wheel, and use Reset to restore the full view. Choose CUTI or BEUTI from the map's compact variable dropdown to update its synthetic raster, summary metrics, time-series chart, and the variable column in the raw table. SST, SSH, SOL, and NO3 appear as planned variables but remain disabled until data and units are defined. The community dropdown supports any combination of communities; “All communities” restores the unfiltered view. The “Explore a community” heading and community list are hidden while a point or polygon selection is active, while the community dropdown stays visible so users can switch back to community data. Clearing the drawn selection restores the heading and list. The raw table shows only the currently selected variable; CSV/JSON exports include all matching records and variables. It starts with five rows and can reveal more. On smaller screens the layout stacks and the page scrolls normally. Use the community and date filters to explore the sample records, or draw a point or polygon on the map to sample the illustrative raster. Point selections use the nearest demo cell; polygon selections average the demo cells inside the drawn area. The charts can be downloaded as SVG, and the filtered table can be exported as CSV or JSON. Copernicus Marine integration and verified EEZ geometry have not yet been connected to this interface.
+On desktop, the map remains fixed in the main workspace while the exploration panel scrolls independently through filters, layers, charts, and raw records. Zoom with the map's plus/minus controls or the mouse wheel, and use Reset to restore the full view. Choose CUTI or BEUTI from the map's compact variable dropdown to update its synthetic raster, summary metrics, time-series chart, and the variable column in the raw table. SST, SSH, SOL, and NO3 remain unavailable as dashboard variables. The optional geostrophic current-vector overlay appears when the generated snapshot is present; cells masked for weak Coriolis are omitted. The community dropdown supports any combination of communities; “All communities” restores the unfiltered view. The “Explore a community” heading and community list are hidden while a point or polygon selection is active, while the community dropdown stays visible so users can switch back to community data. Clearing the drawn selection restores the heading and list. The raw table shows only the currently selected variable; CSV/JSON exports include all matching records and variables. It starts with five rows and can reveal more. On smaller screens the layout stacks and the page scrolls normally. Use the community and date filters to explore the sample records, or draw a point or polygon on the map to sample the illustrative raster. Point selections use the nearest demo cell; polygon selections average the demo cells inside the drawn area. The charts can be downloaded as SVG, and the filtered table can be exported as CSV or JSON. The CUTI/BEUTI dashboard data remain synthetic.
 
 ---
 
@@ -84,16 +99,17 @@ On desktop, the map remains fixed in the main workspace while the exploration pa
 ```text
 ├── data/
 │   ├── raw/                       # Downloaded NetCDF files (not committed)
-│   └── processed/                 # Reserved for validated derived products
+│   └── processed/                 # QC reports and derived products (not committed)
 ├── src/ghana_upwelling/
 │   ├── datasets.json              # Packaged core dataset request inventory
 │   ├── config.py                  # Request loading and validation
 │   ├── download.py                # Copernicus Marine subset downloads
+│   ├── geostrophic.py             # SSH-gradient velocity calculation
 │   ├── quality.py                 # Non-destructive NetCDF checks and inventory
 │   ├── process.py                 # Processing/quality-check command
 │   └── cli.py                     # Command-line interface and defaults
 ├── tests/                         # Downloader and configuration tests
-├── .github/workflows/             # Manual raw-data download workflow
+├── .github/workflows/             # Manual download, QC, and geostrophic workflow
 ├── fetch_data.py                  # Compatibility entry point
 ├── legacy/process_data.py         # Legacy, unvalidated calculations; not in pipeline
 └── README.md

@@ -11,11 +11,13 @@ dependencies = [
     "copernicusmarine",
     "xarray",
     "h5netcdf",
+    "dask[array]",
 ]
 
 [project.scripts]
 ghana-upwelling-fetch = "ghana_upwelling.cli:main"
 ghana-upwelling-process = "ghana_upwelling.process:main"
+ghana-upwelling-geostrophic = "ghana_upwelling.geostrophic:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

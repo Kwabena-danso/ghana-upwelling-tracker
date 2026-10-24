@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -176,6 +177,44 @@ class QualityReportTests(unittest.TestCase):
 
         self.assertEqual(failure_code, 1)
         self.assertEqual(failed_count, 1)
+
+    def test_process_cli_filters_quality_report_to_selected_dataset(self):
+        config = {
+            "datasets": [
+                {"name": "wind", "dataset_id": "wind_product", "variables": ["eastward_wind"]},
+                {
+                    "name": "sea_surface_height",
+                    "dataset_id": "ssh_product",
+                    "variables": ["zos"],
+                },
+            ]
+        }
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            config_path = root / "datasets.json"
+            config_path.write_text(json.dumps(config), encoding="utf-8")
+            with patch(
+                "ghana_upwelling.process.create_quality_report",
+                return_value={
+                    "summary": {"passed": 0, "failed": 1, "total_datasets": 1},
+                    "datasets": [{"name": "sea_surface_height", "issues": ["Raw file missing."]}],
+                },
+            ) as create_report:
+                with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                    exit_code = main(
+                        [
+                            "--config",
+                            str(config_path),
+                            "--dataset-name",
+                            "sea_surface_height",
+                            "--output",
+                            str(root / "report.json"),
+                        ]
+                    )
+
+        self.assertEqual(exit_code, 1)
+        selected = create_report.call_args.args[0]
+        self.assertEqual([request.name for request in selected], ["sea_surface_height"])
 
 
 if __name__ == "__main__":

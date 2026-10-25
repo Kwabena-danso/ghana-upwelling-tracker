@@ -60,6 +60,7 @@
     let geostrophicLeafletMap = null;
     let geostrophicCurrentLayer = null;
     let geostrophicCommunityLayer = null;
+    let geostrophicSelectionLayer = null;
     let geostrophicRasterLayer = null;
     let geostrophicLegendControl = null;
     let geostrophicMapHasFitBounds = false;
@@ -169,9 +170,7 @@
 
     function selectedRecords() {
         if (isGeostrophicVariable(selectedVariable)) {
-            return geostrophicRecords.filter(function (record) {
-                return !selectedGeostrophicRecord || record.id === selectedGeostrophicRecord.id;
-            });
+            return selectedGeostrophicRecords();
         }
         if (selection) {
             return sampleSelection(selection).filter(function (record) {
@@ -273,20 +272,61 @@
             : null;
     }
 
+    function nearestGeostrophicRecord(coordinate) {
+        const nearest = geostrophicRecords.reduce(function (closest, record) {
+            const latitudeScale = Math.cos(coordinate.latitude * Math.PI / 180);
+            const distance = Math.pow(record.latitude - coordinate.latitude, 2) +
+                Math.pow((record.longitude - coordinate.longitude) * latitudeScale, 2);
+            return !closest || distance < closest.distance
+                ? { record: record, distance: distance }
+                : closest;
+        }, null);
+        return nearest ? nearest.record : null;
+    }
+
+    function isWithinGeostrophicCoverage(coordinate) {
+        return geostrophicRecords.some(function (record) {
+            const bounds = geostrophicBounds(record);
+            return coordinate.latitude >= bounds[0] && coordinate.latitude <= bounds[2] &&
+                coordinate.longitude >= bounds[1] && coordinate.longitude <= bounds[3];
+        });
+    }
+
+    function selectedGeostrophicRecords() {
+        if (selectedGeostrophicRecord) return [selectedGeostrophicRecord];
+        if (selection) {
+            if (selection.type === "point") {
+                const record = nearestGeostrophicRecord(selection.coordinates[0]);
+                return record ? [record] : [];
+            }
+            return geostrophicRecords.filter(function (record) {
+                return pointInPolygon(record, selection.coordinates);
+            });
+        }
+        if (selectedSites.length) {
+            const selectedIds = new Set(selectedSites.map(function (siteName) {
+                const site = demo.sites.find(function (item) { return item.name === siteName; });
+                const nearest = site && nearestGeostrophicRecord(site);
+                return nearest ? nearest.id : null;
+            }).filter(function (id) { return id !== null; }));
+            return geostrophicRecords.filter(function (record) { return selectedIds.has(record.id); });
+        }
+        return geostrophicRecords;
+    }
+
     function geostrophicChartRecords() {
         if (!geostrophicTimeSeries) return chartRecords(selectedRecords(), selectedVariable);
         const variableIndex = geostrophicVariableIndices[selectedVariable];
-        const selectedId = selectedGeostrophicRecord ? selectedGeostrophicRecord.id : null;
+        const selectedIds = new Set(selectedGeostrophicRecords().map(function (record) { return record.id; }));
         const dates = geostrophicDates.filter(function (date) {
             return date && date >= startInput.value && date <= endInput.value;
         });
         return dates.map(function (date) {
             const frameIndex = geostrophicDates.indexOf(date);
-            const firstCell = selectedId === null ? 0 : selectedId;
-            const lastCell = selectedId === null ? geostrophicCells.length : selectedId + 1;
             let total = 0;
             let count = 0;
-            for (let cellIndex = firstCell; cellIndex < lastCell; cellIndex += 1) {
+            for (let cellIndex = 0; cellIndex < geostrophicCells.length; cellIndex += 1) {
+                if (!selectedIds.has(cellIndex)) continue;
                 const offset = (frameIndex * geostrophicCells.length + cellIndex) * 3 + variableIndex;
                 const value = geostrophicValues[offset];
                 if (!Number.isFinite(value)) continue;
@@ -385,6 +425,44 @@
             : selectedSites.length === 1
                 ? selectedSites[0]
                 : selectedSites.length + " communities";
+    }
+
+    function renderCommunityList(isGeostrophic) {
+        const siteList = document.getElementById("site-list");
+        siteList.replaceChildren();
+        const heading = document.createElement("p");
+        heading.className = "site-list-label";
+        heading.textContent = isGeostrophic ? "Approximate community locations" : "Explore a community";
+        siteList.appendChild(heading);
+        demo.sites.forEach(function (site) {
+            const button = document.createElement("button");
+            button.className = "site-button";
+            button.type = "button";
+            button.setAttribute("aria-pressed", String(selectedSites.includes(site.name)));
+            const swatch = document.createElement("span");
+            swatch.className = "site-swatch";
+            const label = document.createElement("span");
+            label.className = "site-name";
+            label.appendChild(document.createTextNode(site.name));
+            const coordinates = document.createElement("span");
+            coordinates.className = "site-coords";
+            coordinates.textContent = site.latitude.toFixed(2) + "°N, " + Math.abs(site.longitude).toFixed(2) +
+                "°" + (site.longitude < 0 ? "W" : "E") + " · approximate" +
+                (isGeostrophic ? " · nearest Copernicus cell" : "");
+            label.appendChild(coordinates);
+            button.append(swatch, label);
+            button.addEventListener("click", function () {
+                selection = null;
+                selectedGeostrophicRecord = null;
+                drawingSnapshot = null;
+                drawingMode = null;
+                polygonDraft = [];
+                updateDrawingControls();
+                selectedSites = [site.name];
+                render();
+            });
+            siteList.appendChild(button);
+        });
     }
 
     function colorToRgb(color) {
@@ -521,12 +599,35 @@
             preferCanvas: true
         });
         geostrophicLeafletMap.on("click", function (event) {
-            const coordinate = event.latlng;
-            const record = geostrophicRecords.find(function (item) {
-                const bounds = geostrophicBounds(item);
-                return coordinate.lat >= bounds[0] && coordinate.lat <= bounds[2] &&
-                    coordinate.lng >= bounds[1] && coordinate.lng <= bounds[3];
-            });
+            const coordinate = { latitude: event.latlng.lat, longitude: event.latlng.lng };
+            if (!isWithinGeostrophicCoverage(coordinate)) {
+                if (drawingMode) {
+                    document.getElementById("draw-instructions").textContent =
+                        "Choose a location inside the Copernicus grid coverage.";
+                }
+                return;
+            }
+            if (drawingMode === "point") {
+                const record = nearestGeostrophicRecord(coordinate);
+                if (!record) return;
+                selection = {
+                    type: "point",
+                    coordinates: [coordinate],
+                    name: "Point near " + record.site
+                };
+                drawingMode = null;
+                drawingSnapshot = null;
+                updateDrawingControls();
+                render();
+                return;
+            }
+            if (drawingMode === "polygon") {
+                polygonDraft.push(coordinate);
+                updateDrawingControls();
+                renderGeostrophicSelection();
+                return;
+            }
+            const record = nearestGeostrophicRecord(coordinate);
             if (record) selectGeostrophicRecord(record);
         });
         window.L.tileLayer(
@@ -550,6 +651,7 @@
         geostrophicRasterLayer.addTo(geostrophicLeafletMap);
         geostrophicCurrentLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
         geostrophicCommunityLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
+        geostrophicSelectionLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
         geostrophicLegendControl = window.L.control({ position: "bottomright" });
         geostrophicLegendControl.onAdd = function () {
             const legend = window.L.DomUtil.create("div", "leaflet-current-legend");
@@ -567,21 +669,20 @@
         const communityPointsToggle = document.getElementById("points-toggle");
         mapFrame.classList.add("is-geostrophic");
         document.getElementById("draw-tools").hidden = false;
-        document.getElementById("draw-tools").querySelector(".site-list-label").textContent = "Inspect a Copernicus grid cell";
-        document.getElementById("draw-buttons").hidden = true;
-        document.getElementById("draw-instructions").textContent = selectedGeostrophicRecord
-            ? selectedGeostrophicRecord.site + " selected · values below show this grid cell."
-            : "Click a colored raster cell or current arrow to load its values into Explore Data.";
-        document.getElementById("clear-selection").hidden = !selectedGeostrophicRecord;
+        document.getElementById("draw-tools").querySelector(".site-list-label").textContent = "Select an area on the map";
+        document.getElementById("draw-buttons").hidden = false;
+        document.getElementById("site-list").hidden = false;
+        document.getElementById("community-filter").hidden = false;
+        document.getElementById("draw-instructions").textContent = "";
+        updateDrawingControls();
         document.getElementById("raster-toggle").closest("label").hidden = false;
         document.getElementById("raster-toggle").closest("label").querySelector("span").textContent = "(Copernicus)";
         document.getElementById("raster-legend").hidden = true;
-        document.getElementById("site-list").hidden = true;
-        document.getElementById("community-filter").hidden = true;
         document.getElementById("map-variable").disabled = false;
 
         geostrophicCurrentLayer.clearLayers();
         geostrophicCommunityLayer.clearLayers();
+        renderGeostrophicSelection();
         const values = geostrophicRecords.map(function (record) {
             return record[selectedVariable];
         }).sort(function (first, second) {
@@ -632,6 +733,7 @@
             const marker = window.L.marker([record.latitude, record.longitude], {
                 icon: icon,
                 keyboard: true,
+                interactive: !drawingMode,
                 title: "Geostrophic speed " + record.speed.toFixed(3) + " m/s"
             });
             marker.on("click", function () {
@@ -653,18 +755,30 @@
             demo.sites.forEach(function (site) {
                 const marker = window.L.circleMarker([site.latitude, site.longitude], {
                     radius: 5,
-                    color: "#684400",
+                    color: selectedSites.includes(site.name) ? "#075985" : "#684400",
                     weight: 1,
-                    fillColor: "#f39200",
+                    fillColor: selectedSites.includes(site.name) ? "#38bdf8" : "#f39200",
                     fillOpacity: 1,
+                    interactive: !drawingMode,
                     title: site.name
                 });
+                marker.on("click", function () {
+                    selection = null;
+                    selectedGeostrophicRecord = null;
+                    drawingMode = null;
+                    polygonDraft = [];
+                    drawingSnapshot = null;
+                    selectedSites = [site.name];
+                    updateDrawingControls();
+                    render();
+                });
                 marker.bindPopup(
-                    "<strong>" + site.name + "</strong><br>Approximate demonstration location"
+                    "<strong>" + site.name + "</strong><br>Approximate demonstration location; values use the nearest Copernicus grid cell."
                 );
                 marker.addTo(geostrophicCommunityLayer);
             });
         }
+        renderCommunityList(true);
 
         geostrophicLeafletMap.invalidateSize({ pan: false });
         if (!geostrophicMapHasFitBounds) {
@@ -700,9 +814,46 @@
     }
 
     function selectGeostrophicRecord(record) {
+        selection = null;
+        selectedSites = [];
         selectedGeostrophicRecord = record;
         updateDrawingControls();
         renderExploreData(selectedRecords());
+    }
+
+    function renderGeostrophicSelection() {
+        if (!geostrophicSelectionLayer || !window.L) return;
+        geostrophicSelectionLayer.clearLayers();
+        const draft = polygonDraft;
+        if (draft.length) {
+            const points = draft.map(function (point) { return [point.latitude, point.longitude]; });
+            if (draft.length > 1) {
+                const line = draft.length > 2
+                    ? window.L.polygon(points, { color: "#f97316", weight: 2, fillOpacity: 0.12, dashArray: "5 5", interactive: false })
+                    : window.L.polyline(points, { color: "#f97316", weight: 2, dashArray: "5 5", interactive: false });
+                line.addTo(geostrophicSelectionLayer);
+            }
+            draft.forEach(function (point) {
+                window.L.circleMarker([point.latitude, point.longitude], {
+                    radius: 4, color: "#fff", weight: 2, fillColor: "#f97316", fillOpacity: 1,
+                    interactive: false
+                }).addTo(geostrophicSelectionLayer);
+            });
+        }
+        if (selection && selection.coordinates && selection.coordinates.length) {
+            const selectedPoints = selection.coordinates.map(function (point) {
+                return [point.latitude, point.longitude];
+            });
+            const shape = selection.type === "polygon"
+                ? window.L.polygon(selectedPoints, {
+                    color: "#075985", weight: 2, fillColor: "#38bdf8", fillOpacity: 0.16, interactive: false
+                })
+                : window.L.circleMarker(selectedPoints[0], {
+                    radius: 8, color: "#fff", weight: 2, fillColor: "#075985", fillOpacity: 1,
+                    interactive: false
+                });
+            shape.addTo(geostrophicSelectionLayer);
+        }
     }
 
     function renderMap() {
@@ -715,6 +866,7 @@
         geostrophicToggle.disabled = !hasGeostrophicVectors || !window.L;
         if (hasGeostrophicVectors && geostrophicToggle.checked && isGeostrophicVariable(selectedVariable) &&
             renderGeostrophicLeaflet()) return;
+        if (geostrophicLeafletMap) geostrophicLeafletMap.doubleClickZoom.enable();
         mapFrame.classList.remove("is-geostrophic");
         document.getElementById("draw-tools").hidden = false;
         document.getElementById("draw-buttons").hidden = false;
@@ -824,39 +976,7 @@
             });
         });
 
-        const siteList = document.getElementById("site-list");
-        siteList.replaceChildren();
-        const heading = document.createElement("p");
-        heading.className = "site-list-label";
-        heading.textContent = "Explore a community";
-        siteList.appendChild(heading);
-        demo.sites.forEach(function (site) {
-            const button = document.createElement("button");
-            button.className = "site-button";
-            button.type = "button";
-            button.setAttribute("aria-pressed", String(selectedSites.includes(site.name)));
-            const swatch = document.createElement("span");
-            swatch.className = "site-swatch";
-            const label = document.createElement("span");
-            label.className = "site-name";
-            label.appendChild(document.createTextNode(site.name));
-            const coordinates = document.createElement("span");
-            coordinates.className = "site-coords";
-            coordinates.textContent = site.latitude.toFixed(2) + "°N, " + Math.abs(site.longitude).toFixed(2) +
-                "°" + (site.longitude < 0 ? "W" : "E") + " · approximate";
-            label.appendChild(coordinates);
-            button.append(swatch, label);
-            button.addEventListener("click", function () {
-                selection = null;
-                drawingSnapshot = null;
-                drawingMode = null;
-                polygonDraft = [];
-                updateDrawingControls();
-                selectedSites = [site.name];
-                render();
-            });
-            siteList.appendChild(button);
-        });
+        renderCommunityList(false);
     }
 
     function chartRecords(records, key) {
@@ -931,7 +1051,10 @@
             ? geostrophicVariableLabels[selectedVariable]
             : selectedVariable.toUpperCase();
         document.getElementById("records-title").textContent = geostrophic
-            ? selectedGeostrophicRecord ? "Selected Copernicus grid cell" : "Copernicus geostrophic grid"
+            ? selectedGeostrophicRecord ? "Selected Copernicus grid cell"
+                : selection ? selection.name + " · Copernicus grid cells"
+                    : selectedSites.length ? "Community nearest Copernicus grid cells"
+                        : "Copernicus geostrophic grid"
             : selection
                 ? (selection.type === "point" ? "Point sample records" : "Polygon average records")
                 : "Raw demonstration records";
@@ -1018,16 +1141,29 @@
         pointButton.setAttribute("aria-pressed", String(drawingMode === "point"));
         polygonButton.setAttribute("aria-pressed", String(drawingMode === "polygon"));
         if (isGeostrophicVariable(selectedVariable)) {
-            document.getElementById("draw-buttons").hidden = true;
+            document.getElementById("draw-buttons").hidden = false;
             document.getElementById("draw-tools").hidden = false;
-            document.getElementById("draw-tools").querySelector(".site-list-label").textContent =
-                "Inspect a Copernicus grid cell";
-            clearButton.hidden = !selectedGeostrophicRecord;
-            finishButton.hidden = true;
-            cancelButton.hidden = true;
-            instructions.textContent = selectedGeostrophicRecord
-                ? selectedGeostrophicRecord.site + " selected · values below show this grid cell."
-                : "Click a colored raster cell or current arrow to load its values into Explore Data.";
+            finishButton.hidden = drawingMode !== "polygon" || polygonDraft.length < 3;
+            cancelButton.hidden = !drawingMode;
+            clearButton.hidden = !(selection || selectedGeostrophicRecord || selectedSites.length);
+            if (drawingMode === "point") {
+                instructions.textContent = "Click the map to sample the nearest Copernicus grid cell.";
+            } else if (drawingMode === "polygon") {
+                instructions.textContent = "Click to add polygon vertices; finish to average grid cells inside. " +
+                    polygonDraft.length + " point" + (polygonDraft.length === 1 ? "" : "s") + " added.";
+            } else if (selectedGeostrophicRecord) {
+                instructions.textContent = selectedGeostrophicRecord.site +
+                    " selected · values below show this Copernicus grid cell.";
+            } else if (selection) {
+                instructions.textContent = selection.type === "polygon"
+                    ? selection.name + " selected · Explore Data shows its Copernicus grid cells."
+                    : selection.name + " selected · Explore Data shows the nearest Copernicus grid cell.";
+            } else if (selectedSites.length) {
+                instructions.textContent = selectedSites.join(", ") +
+                    " selected · using the nearest Copernicus grid cell for each approximate community location.";
+            } else {
+                instructions.textContent = "Click a raster cell or current arrow to inspect it, or select a community, point, or polygon.";
+            }
             return;
         }
         document.getElementById("draw-buttons").hidden = false;
@@ -1161,6 +1297,7 @@
         drawingMode = null;
         polygonDraft = [];
         selectedSites = [];
+        if (geostrophicLeafletMap) geostrophicLeafletMap.doubleClickZoom.enable();
         configureDateFilters();
         updateDrawingControls();
         render();
@@ -1168,6 +1305,7 @@
     communityOptions.addEventListener("change", function (event) {
         if (event.target.type !== "checkbox") return;
         selection = null;
+        selectedGeostrophicRecord = null;
         drawingSnapshot = null;
         drawingMode = null;
         polygonDraft = [];
@@ -1220,20 +1358,34 @@
             [mapView.x, mapView.y, mapView.width, mapView.height].join(" "));
     });
     document.getElementById("draw-point").addEventListener("click", function () {
-        drawingSnapshot = drawingSnapshot || { selection: selection, sites: selectedSites.slice() };
+        drawingSnapshot = drawingSnapshot || {
+            selection: selection,
+            sites: selectedSites.slice(),
+            record: selectedGeostrophicRecord
+        };
         selection = null;
+        selectedGeostrophicRecord = null;
         selectedSites = [];
         drawingMode = "point";
         polygonDraft = [];
+        if (geostrophicLeafletMap) geostrophicLeafletMap.doubleClickZoom.enable();
         updateDrawingControls();
         render();
     });
     document.getElementById("draw-polygon").addEventListener("click", function () {
-        drawingSnapshot = drawingSnapshot || { selection: selection, sites: selectedSites.slice() };
+        drawingSnapshot = drawingSnapshot || {
+            selection: selection,
+            sites: selectedSites.slice(),
+            record: selectedGeostrophicRecord
+        };
         selection = null;
+        selectedGeostrophicRecord = null;
         selectedSites = [];
         drawingMode = "polygon";
         polygonDraft = [];
+        if (geostrophicLeafletMap && isGeostrophicVariable(selectedVariable)) {
+            geostrophicLeafletMap.doubleClickZoom.disable();
+        }
         updateDrawingControls();
         render();
     });
@@ -1244,9 +1396,12 @@
             coordinates: polygonDraft.slice(),
             name: "Drawn polygon"
         };
+        selectedGeostrophicRecord = null;
+        selectedSites = [];
         drawingSnapshot = null;
         drawingMode = null;
         polygonDraft = [];
+        if (geostrophicLeafletMap) geostrophicLeafletMap.doubleClickZoom.enable();
         updateDrawingControls();
         render();
     });
@@ -1254,16 +1409,19 @@
         if (drawingSnapshot) {
             selection = drawingSnapshot.selection;
             selectedSites = drawingSnapshot.sites;
+            selectedGeostrophicRecord = drawingSnapshot.record || null;
         }
         drawingSnapshot = null;
         drawingMode = null;
         polygonDraft = [];
+        if (geostrophicLeafletMap) geostrophicLeafletMap.doubleClickZoom.enable();
         updateDrawingControls();
         render();
     });
     document.getElementById("clear-selection").addEventListener("click", function () {
         selection = null;
         selectedGeostrophicRecord = null;
+        selectedSites = [];
         drawingSnapshot = null;
         updateDrawingControls();
         render();
@@ -1286,6 +1444,8 @@
                 coordinates: [coordinate],
                 name: "Drawn point"
             };
+            selectedGeostrophicRecord = null;
+            selectedSites = [];
             drawingSnapshot = null;
             drawingMode = null;
             updateDrawingControls();

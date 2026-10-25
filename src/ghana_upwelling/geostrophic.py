@@ -47,20 +47,26 @@ def _write_dashboard_snapshot(dataset: Any, output_file: Path, stride: int) -> N
 
     latitude_name = dataset.attrs["latitude_coordinate"]
     longitude_name = dataset.attrs["longitude_coordinate"]
-    latitude = dataset[latitude_name].values[::stride]
-    longitude = dataset[longitude_name].values[::stride]
+    latitude = dataset[latitude_name].values
+    longitude = dataset[longitude_name].values
+
+    def coordinate_edges(coordinates: Any) -> Any:
+        edges = np.empty(coordinates.size + 1, dtype=float)
+        edges[1:-1] = (coordinates[:-1] + coordinates[1:]) / 2
+        edges[0] = coordinates[0] - (coordinates[1] - coordinates[0]) / 2
+        edges[-1] = coordinates[-1] + (coordinates[-1] - coordinates[-2]) / 2
+        return edges
+
+    latitude_edges = coordinate_edges(latitude)
+    longitude_edges = coordinate_edges(longitude)
     latest = dataset
     if "time" in latest.dims:
         latest = latest.isel(time=-1)
 
-    selection = {
-        latitude_name: slice(None, None, stride),
-        longitude_name: slice(None, None, stride),
-    }
-    eastward = latest["eastward_geostrophic_velocity"].isel(selection).values
-    northward = latest["northward_geostrophic_velocity"].isel(selection).values
-    speed = latest["geostrophic_speed"].isel(selection).values
-    vectors = []
+    eastward = latest["eastward_geostrophic_velocity"].values
+    northward = latest["northward_geostrophic_velocity"].values
+    speed = latest["geostrophic_speed"].values
+    cells = []
     for row, latitude_value in enumerate(latitude):
         for column, longitude_value in enumerate(longitude):
             east = float(eastward[row, column])
@@ -68,10 +74,51 @@ def _write_dashboard_snapshot(dataset: Any, output_file: Path, stride: int) -> N
             magnitude = float(speed[row, column])
             if not all(math.isfinite(value) for value in (east, north, magnitude)):
                 continue
+            cells.append(
+                {
+                    "latitude": float(latitude_value),
+                    "longitude": float(longitude_value),
+                    "bounds": [
+                        float(min(latitude_edges[row], latitude_edges[row + 1])),
+                        float(min(longitude_edges[column], longitude_edges[column + 1])),
+                        float(max(latitude_edges[row], latitude_edges[row + 1])),
+                        float(max(longitude_edges[column], longitude_edges[column + 1])),
+                    ],
+                    "eastward": east,
+                    "northward": north,
+                    "speed": magnitude,
+                }
+            )
+
+    selection = {
+        latitude_name: slice(None, None, stride),
+        longitude_name: slice(None, None, stride),
+    }
+    sampled_latitude = latitude[::stride]
+    sampled_longitude = longitude[::stride]
+    sampled_eastward = eastward[::stride, ::stride]
+    sampled_northward = northward[::stride, ::stride]
+    sampled_speed = speed[::stride, ::stride]
+    vectors = []
+    for row, latitude_value in enumerate(sampled_latitude):
+        for column, longitude_value in enumerate(sampled_longitude):
+            east = float(sampled_eastward[row, column])
+            north = float(sampled_northward[row, column])
+            magnitude = float(sampled_speed[row, column])
+            if not all(math.isfinite(value) for value in (east, north, magnitude)):
+                continue
+            source_row = row * stride
+            source_column = column * stride
             vectors.append(
                 {
                     "latitude": float(latitude_value),
                     "longitude": float(longitude_value),
+                    "bounds": [
+                        float(min(latitude_edges[source_row], latitude_edges[source_row + 1])),
+                        float(min(longitude_edges[source_column], longitude_edges[source_column + 1])),
+                        float(max(latitude_edges[source_row], latitude_edges[source_row + 1])),
+                        float(max(longitude_edges[source_column], longitude_edges[source_column + 1])),
+                    ],
                     "eastward": east,
                     "northward": north,
                     "speed": magnitude,
@@ -100,6 +147,7 @@ def _write_dashboard_snapshot(dataset: Any, output_file: Path, stride: int) -> N
             float(np.min(dataset[longitude_name].values)),
             float(np.max(dataset[longitude_name].values)),
         ],
+        "cells": cells,
         "vectors": vectors,
     }
     encoded = json.dumps(snapshot, separators=(",", ":"), allow_nan=False)

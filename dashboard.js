@@ -9,13 +9,54 @@
     const endInput = document.getElementById("end-date");
     const recordsBody = document.getElementById("records-body");
     const emptyState = document.getElementById("empty-state");
-    const dates = Array.from(new Set(demo.records.map(function (record) { return record.date; }))).sort();
+    const demoDates = Array.from(new Set(demo.records.map(function (record) { return record.date; }))).sort();
+    const geostrophicRecords = geostrophicData
+        ? (geostrophicData.cells || geostrophicData.vectors).map(function (cell, index) {
+            return {
+                id: index,
+                date: geostrophicData.date,
+                site: "Grid cell " + (index + 1) + " · " +
+                    Math.abs(cell.latitude).toFixed(3) + "°" + (cell.latitude < 0 ? "S" : "N") +
+                    ", " + Math.abs(cell.longitude).toFixed(3) + "°" +
+                    (cell.longitude < 0 ? "W" : "E"),
+                latitude: cell.latitude,
+                longitude: cell.longitude,
+                bounds: cell.bounds,
+                eastward: cell.eastward,
+                northward: cell.northward,
+                speed: cell.speed
+            };
+        })
+        : [];
+    const geostrophicRecordByCoordinate = new Map(geostrophicRecords.map(function (record) {
+        return [record.latitude + "|" + record.longitude, record];
+    }));
+    const geostrophicLatitudes = Array.from(new Set(geostrophicRecords.map(function (record) {
+        return record.latitude;
+    }))).sort(function (first, second) { return first - second; });
+    const geostrophicLongitudes = Array.from(new Set(geostrophicRecords.map(function (record) {
+        return record.longitude;
+    }))).sort(function (first, second) { return first - second; });
+    const geostrophicVariableLabels = {
+        speed: "Geostrophic speed",
+        eastward: "Eastward velocity",
+        northward: "Northward velocity"
+    };
+    const geostrophicVariableUnits = {
+        speed: "m s⁻¹",
+        eastward: "m s⁻¹",
+        northward: "m s⁻¹"
+    };
+    const isGeostrophicVariable = function (variable) {
+        return Object.prototype.hasOwnProperty.call(geostrophicVariableLabels, variable);
+    };
     const initialRecordCount = 5;
     const mapPlot = { left: 60, right: 640, top: 35, bottom: 465 };
     const defaultMapView = { x: 0, y: 0, width: 700, height: 500 };
     let mapView = { x: defaultMapView.x, y: defaultMapView.y, width: defaultMapView.width, height: defaultMapView.height };
-    let selectedVariable = "cuti";
+    let selectedVariable = geostrophicRecords.length && window.L ? "speed" : "cuti";
     let selection = null;
+    let selectedGeostrophicRecord = null;
     let drawingMode = null;
     let polygonDraft = [];
     let drawingSnapshot = null;
@@ -24,11 +65,9 @@
     let geostrophicLeafletMap = null;
     let geostrophicCurrentLayer = null;
     let geostrophicCommunityLayer = null;
+    let geostrophicRasterLayer = null;
     let geostrophicLegendControl = null;
     let geostrophicMapHasFitBounds = false;
-    if (geostrophicData && window.L) {
-        document.getElementById("geostrophic-toggle").checked = true;
-    }
 
     const allCommunitiesOption = document.createElement("label");
     allCommunitiesOption.className = "community-option community-option-all";
@@ -47,14 +86,32 @@
         option.append(checkbox, document.createTextNode(site.name));
         communityOptions.appendChild(option);
     });
-    startInput.min = dates[0];
-    startInput.max = dates[dates.length - 1];
-    endInput.min = dates[0];
-    endInput.max = dates[dates.length - 1];
-    startInput.value = dates[0];
-    endInput.value = dates[dates.length - 1];
+    function configureDateFilters() {
+        const currentDates = isGeostrophicVariable(selectedVariable)
+            ? [geostrophicData.date]
+            : demoDates;
+        startInput.min = currentDates[0];
+        startInput.max = currentDates[currentDates.length - 1];
+        endInput.min = currentDates[0];
+        endInput.max = currentDates[currentDates.length - 1];
+        startInput.value = currentDates[0];
+        endInput.value = currentDates[currentDates.length - 1];
+    }
+
+    configureDateFilters();
+    document.getElementById("geostrophic-toggle").checked = isGeostrophicVariable(selectedVariable) && Boolean(window.L);
+    ["speed", "eastward", "northward"].forEach(function (variable) {
+        const option = document.querySelector('#map-variable option[value="' + variable + '"]');
+        option.disabled = !geostrophicRecords.length || !window.L;
+    });
 
     function selectedRecords() {
+        if (isGeostrophicVariable(selectedVariable)) {
+            return geostrophicRecords.filter(function (record) {
+                return record.date >= startInput.value && record.date <= endInput.value &&
+                    (!selectedGeostrophicRecord || record.id === selectedGeostrophicRecord.id);
+            });
+        }
         if (selection) {
             return sampleSelection(selection).filter(function (record) {
                 return record.date >= startInput.value && record.date <= endInput.value;
@@ -125,10 +182,10 @@
             if (!rasterCells.length) rasterCells.push(center);
         }
 
-        return dates.filter(function (date) {
+        return demoDates.filter(function (date) {
             return date >= startInput.value && date <= endInput.value;
         }).map(function (date) {
-            const dateIndex = dates.indexOf(date);
+            const dateIndex = demoDates.indexOf(date);
             const values = rasterCells.map(function (cell) {
                 return sampleCell(cell.longitude, cell.latitude, dateIndex);
             });
@@ -156,7 +213,10 @@
     }
 
     function renderMetrics(records) {
-        const variableName = selectedVariable.toUpperCase();
+        const geostrophic = isGeostrophicVariable(selectedVariable);
+        const variableName = geostrophic
+            ? geostrophicVariableLabels[selectedVariable]
+            : selectedVariable.toUpperCase();
         const latestDate = records.reduce(function (latest, record) {
             return record.date > latest ? record.date : latest;
         }, "");
@@ -164,10 +224,10 @@
             return !best || record[selectedVariable] > best[selectedVariable] ? record : best;
         }, null);
         const metrics = [
-            { label: "Mean " + variableName, value: mean(records, selectedVariable), unit: "demo units", detail: "Across filtered records" },
+            { label: "Mean " + variableName, value: mean(records, selectedVariable), unit: geostrophic ? geostrophicVariableUnits[selectedVariable] : "demo units", detail: geostrophic ? "Across selected grid cells" : "Across filtered records" },
             { label: "Highest " + variableName + " sample", value: strongest ? strongest[selectedVariable] : null, unit: strongest ? strongest.site : "", detail: strongest ? formatDate(strongest.date) : "No matching records" },
             { label: "Latest sample date", value: latestDate ? formatDate(latestDate) : "—", unit: "", detail: records.length + " records in this view" },
-            { label: "Records in view", value: records.length, unit: "", detail: selection ? selection.name : "Across selected communities" }
+            { label: geostrophic ? "Grid cells in view" : "Records in view", value: records.length, unit: "", detail: selectedGeostrophicRecord ? selectedGeostrophicRecord.site : selection ? selection.name : geostrophic ? "Copernicus snapshot" : "Across selected communities" }
         ];
         const container = document.getElementById("metrics");
         container.replaceChildren();
@@ -180,7 +240,11 @@
             const value = document.createElement("div");
             value.className = "metric-value";
             const mainValue = document.createElement("span");
-            mainValue.textContent = typeof metric.value === "number" ? metric.value.toFixed(2) : metric.value;
+            mainValue.textContent = typeof metric.value === "number"
+                ? metric.label === "Records in view" || metric.label === "Grid cells in view"
+                    ? metric.value.toLocaleString("en-US")
+                    : metric.value.toFixed(2)
+                : metric.value;
             value.appendChild(mainValue);
             if (metric.unit) {
                 const unit = document.createElement("small");
@@ -244,6 +308,28 @@
         return palette[Math.min(palette.length - 1, Math.floor(fraction * palette.length))];
     }
 
+    function geostrophicBounds(record) {
+        if (record.bounds) return record.bounds;
+        const latitudeSpacing = geostrophicLatitudes.length > 1
+            ? geostrophicLatitudes[1] - geostrophicLatitudes[0]
+            : 0;
+        const longitudeSpacing = geostrophicLongitudes.length > 1
+            ? geostrophicLongitudes[1] - geostrophicLongitudes[0]
+            : 0;
+        return [
+            record.latitude - latitudeSpacing / 2,
+            record.longitude - longitudeSpacing / 2,
+            record.latitude + latitudeSpacing / 2,
+            record.longitude + longitudeSpacing / 2
+        ];
+    }
+
+    function geostrophicScalarColor(value, minimum, maximum) {
+        const palette = ["#313695", "#74add1", "#ffffbf", "#f46d43", "#a50026"];
+        const fraction = maximum > minimum ? (value - minimum) / (maximum - minimum) : 0.5;
+        return palette[Math.max(0, Math.min(palette.length - 1, Math.floor(fraction * palette.length)))];
+    }
+
     function initializeGeostrophicLeaflet() {
         if (!window.L) return false;
         if (geostrophicLeafletMap) return true;
@@ -253,6 +339,15 @@
             zoomControl: true,
             preferCanvas: true
         });
+        geostrophicLeafletMap.on("click", function (event) {
+            const coordinate = event.latlng;
+            const record = geostrophicRecords.find(function (item) {
+                const bounds = geostrophicBounds(item);
+                return coordinate.lat >= bounds[0] && coordinate.lat <= bounds[2] &&
+                    coordinate.lng >= bounds[1] && coordinate.lng <= bounds[3];
+            });
+            if (record) selectGeostrophicRecord(record);
+        });
         window.L.tileLayer(
             "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
             {
@@ -260,16 +355,13 @@
                 attribution: "Tiles &copy; Esri — Sources: Esri, TomTom, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors, and the GIS User Community"
             }
         ).addTo(geostrophicLeafletMap);
+        geostrophicRasterLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
         geostrophicCurrentLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
         geostrophicCommunityLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
-        geostrophicLegendControl = window.L.control({ position: "topright" });
+        geostrophicLegendControl = window.L.control({ position: "topleft" });
         geostrophicLegendControl.onAdd = function () {
             const legend = window.L.DomUtil.create("div", "leaflet-current-legend");
-            legend.innerHTML =
-                "<strong>Geostrophic speed</strong>" +
-                '<div class="leaflet-speed-gradient" aria-hidden="true"></div>' +
-                '<div class="leaflet-speed-labels"><span>Slow</span><span>Fast</span></div>' +
-                "<div>Arrows show current direction</div>";
+            legend.innerHTML = "";
             return legend;
         };
         geostrophicLegendControl.addTo(geostrophicLeafletMap);
@@ -280,34 +372,86 @@
         if (!initializeGeostrophicLeaflet()) return false;
 
         const mapFrame = document.querySelector(".map-frame");
-        const mapSidebar = document.querySelector(".map-sidebar");
         const communityPointsToggle = document.getElementById("points-toggle");
         mapFrame.classList.add("is-geostrophic");
-        mapSidebar.classList.add("is-geostrophic");
-        document.getElementById("draw-tools").hidden = true;
-        document.getElementById("raster-toggle").closest("label").hidden = true;
+        document.getElementById("draw-tools").hidden = false;
+        document.getElementById("draw-tools").querySelector(".site-list-label").textContent = "Inspect a Copernicus grid cell";
+        document.getElementById("draw-buttons").hidden = true;
+        document.getElementById("draw-instructions").textContent = selectedGeostrophicRecord
+            ? selectedGeostrophicRecord.site + " selected · values below show this grid cell."
+            : "Click a colored raster cell or current arrow to load its values into Explore Data.";
+        document.getElementById("clear-selection").hidden = !selectedGeostrophicRecord;
+        document.getElementById("raster-toggle").closest("label").hidden = false;
+        document.getElementById("raster-toggle").closest("label").querySelector("span").textContent = "(Copernicus)";
         document.getElementById("raster-legend").hidden = true;
         document.getElementById("site-list").hidden = true;
-        document.getElementById("map-variable").disabled = true;
+        document.getElementById("community-filter").hidden = true;
+        document.getElementById("map-variable").disabled = false;
 
+        geostrophicRasterLayer.clearLayers();
         geostrophicCurrentLayer.clearLayers();
         geostrophicCommunityLayer.clearLayers();
-        const speeds = geostrophicData.vectors.map(function (vector) {
-            return vector.speed;
+        const values = geostrophicRecords.map(function (record) {
+            return record[selectedVariable];
         }).sort(function (first, second) {
             return first - second;
         });
-        const maximumSpeed = speeds.length
-            ? speeds[Math.min(speeds.length - 1, Math.floor(speeds.length * 0.95))]
-            : 1;
+        const absoluteValues = values.map(Math.abs).sort(function (first, second) {
+            return first - second;
+        });
+        const scalarExtent = isGeostrophicVariable(selectedVariable) &&
+            selectedVariable !== "speed" && absoluteValues.length
+            ? absoluteValues[absoluteValues.length - 1]
+            : 0;
+        const scalarMinimum = selectedVariable === "speed" ? 0 : -scalarExtent;
+        const scalarMaximum = selectedVariable === "speed"
+            ? values[values.length - 1]
+            : scalarExtent;
+        const maximumSpeed = values.length ? scalarMaximum : 1;
+        const rasterVisible = document.getElementById("raster-toggle").checked;
+
+        geostrophicRecords.forEach(function (record) {
+            const value = record[selectedVariable];
+            const color = selectedVariable === "speed"
+                ? currentSpeedColor(value, maximumSpeed)
+                : geostrophicScalarColor(value, scalarMinimum, scalarMaximum);
+            const bounds = geostrophicBounds(record);
+            const cell = window.L.rectangle(
+                [[bounds[0], bounds[1]], [bounds[2], bounds[3]]],
+                {
+                    color: "#ffffff",
+                    weight: 0.35,
+                    fillColor: color,
+                    fillOpacity: rasterVisible ? 0.62 : 0
+                }
+            );
+            cell.on("click", function () {
+                selectGeostrophicRecord(record);
+            });
+            cell.bindPopup(
+                "<strong>" + geostrophicVariableLabels[selectedVariable] + "</strong><br>" +
+                "Value: " + value.toFixed(3) + " m s⁻¹<br>" +
+                "Speed: " + record.speed.toFixed(3) + " m s⁻¹<br>" +
+                "Eastward: " + record.eastward.toFixed(3) + " m s⁻¹<br>" +
+                "Northward: " + record.northward.toFixed(3) + " m s⁻¹<br>" +
+                "Position: " + record.latitude.toFixed(3) + "°N, " +
+                record.longitude.toFixed(3) + "°"
+            );
+            cell.addTo(geostrophicRasterLayer);
+        });
 
         geostrophicData.vectors.forEach(function (vector) {
-            const color = currentSpeedColor(vector.speed, maximumSpeed);
+            const record = geostrophicRecordByCoordinate.get(vector.latitude + "|" + vector.longitude);
+            if (!record) return;
+            const value = record[selectedVariable];
+            const color = selectedVariable === "speed"
+                ? currentSpeedColor(value, maximumSpeed)
+                : geostrophicScalarColor(value, scalarMinimum, scalarMaximum);
             const direction = Math.atan2(vector.eastward, vector.northward) * 180 / Math.PI;
             const icon = window.L.divIcon({
                 className: "leaflet-current-icon",
-                iconSize: [22, 22],
-                iconAnchor: [11, 11],
+                iconSize: [14, 14],
+                iconAnchor: [7, 7],
                 html: '<span class="leaflet-current-arrow" style="--arrow-direction:' +
                     direction.toFixed(1) + "deg;--speed-color:" + color + '">' +
                     '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22V4M5 11l7-7 7 7"></path></svg></span>'
@@ -316,6 +460,9 @@
                 icon: icon,
                 keyboard: true,
                 title: "Geostrophic speed " + vector.speed.toFixed(3) + " m/s"
+            });
+            marker.on("click", function () {
+                selectGeostrophicRecord(record);
             });
             marker.bindPopup(
                 '<div class="leaflet-current-popup"><strong>Surface geostrophic current</strong><br>' +
@@ -348,40 +495,61 @@
 
         geostrophicLeafletMap.invalidateSize({ pan: false });
         if (!geostrophicMapHasFitBounds) {
-            const latitudeExtent = geostrophicData.latitude_extent;
-            const longitudeExtent = geostrophicData.longitude_extent;
+            const validLatitudes = geostrophicRecords.map(function (record) { return record.latitude; });
+            const validLongitudes = geostrophicRecords.map(function (record) { return record.longitude; });
             geostrophicLeafletMap.fitBounds(
                 [
-                    [latitudeExtent[0], longitudeExtent[0]],
-                    [latitudeExtent[1], longitudeExtent[1]]
+                    [Math.min.apply(null, validLatitudes), Math.min.apply(null, validLongitudes)],
+                    [Math.max.apply(null, validLatitudes), Math.max.apply(null, validLongitudes)]
                 ],
-                { padding: [18, 18], maxZoom: 6 }
+                { padding: [24, 24], maxZoom: 7 }
             );
             geostrophicMapHasFitBounds = true;
         }
+        const legend = geostrophicLegendControl.getContainer();
+        if (legend) {
+            const minimumLabel = selectedVariable === "speed" ? "0" : scalarMinimum.toFixed(3);
+            const maximumLabel = selectedVariable === "speed" ? maximumSpeed.toFixed(3) : scalarMaximum.toFixed(3);
+            legend.innerHTML =
+                "<strong>" + geostrophicVariableLabels[selectedVariable] + " · m s⁻¹</strong>" +
+                '<div class="leaflet-speed-gradient" aria-hidden="true"></div>' +
+                '<div class="leaflet-speed-labels"><span>' + minimumLabel + '</span><span>' + maximumLabel + '</span></div>' +
+                "<div>Arrows show current direction</div>";
+            legend.querySelector(".leaflet-speed-gradient").style.background = selectedVariable === "speed"
+                ? "linear-gradient(90deg, #fff7bc, #fec44f, #fe9929, #ec7014, #cc4c02)"
+                : "linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026)";
+        }
         document.getElementById("geostrophic-status").textContent =
-            "Copernicus " + geostrophicData.date + " · " + geostrophicData.vectors.length +
-            " mapped currents · |f| < " +
-            Number(geostrophicData["minimum_coriolis_s-1"]).toExponential(1) + " s⁻¹ masked";
+            "Copernicus " + geostrophicData.date + " · " + geostrophicRecords.length +
+            " grid cells · SSH-derived surface velocities · |f| < " +
+            Number(geostrophicData["minimum_coriolis_s-1"]).toExponential(1) + " s⁻¹ masked.";
         return true;
+    }
+
+    function selectGeostrophicRecord(record) {
+        selectedGeostrophicRecord = record;
+        updateDrawingControls();
+        renderExploreData(selectedRecords());
     }
 
     function renderMap() {
         const map = document.getElementById("site-map");
         const mapFrame = document.querySelector(".map-frame");
-        const mapSidebar = document.querySelector(".map-sidebar");
         const rasterVisible = document.getElementById("raster-toggle").checked;
         const pointsVisible = document.getElementById("points-toggle").checked;
         const geostrophicToggle = document.getElementById("geostrophic-toggle");
         const hasGeostrophicVectors = Boolean(geostrophicData && geostrophicData.vectors.length);
         geostrophicToggle.disabled = !hasGeostrophicVectors || !window.L;
-        if (hasGeostrophicVectors && geostrophicToggle.checked && renderGeostrophicLeaflet()) return;
+        if (hasGeostrophicVectors && geostrophicToggle.checked && isGeostrophicVariable(selectedVariable) &&
+            renderGeostrophicLeaflet()) return;
         mapFrame.classList.remove("is-geostrophic");
-        mapSidebar.classList.remove("is-geostrophic");
         document.getElementById("draw-tools").hidden = false;
+        document.getElementById("draw-buttons").hidden = false;
         document.getElementById("raster-toggle").closest("label").hidden = false;
+        document.getElementById("raster-toggle").closest("label").querySelector("span").textContent = "(demo)";
         document.getElementById("raster-legend").hidden = false;
         document.getElementById("site-list").hidden = Boolean(selection);
+        document.getElementById("community-filter").hidden = false;
         document.getElementById("map-variable").disabled = false;
         const raster = [];
         const rasterValues = demo.records.map(function (record) { return record[selectedVariable]; });
@@ -396,7 +564,7 @@
                     (demo.raster.maxLongitude - demo.raster.minLongitude);
                 const latitude = demo.raster.maxLatitude - (row + 0.5) / demo.raster.rows *
                     (demo.raster.maxLatitude - demo.raster.minLatitude);
-                const rasterSample = sampleCell(longitude, latitude, dates.length - 1)[selectedVariable];
+                const rasterSample = sampleCell(longitude, latitude, demoDates.length - 1)[selectedVariable];
                 const value = (rasterSample - rasterMinimum) / rasterRange;
                 raster.push('<rect class="raster-cell" x="' + (mapPlot.left + column * cellWidth).toFixed(1) + '" y="' + (mapPlot.top + row * cellHeight).toFixed(1) +
                     '" width="' + cellWidth.toFixed(1) + '" height="' + cellHeight.toFixed(1) + '" fill="' + rasterColor(value) + '"></rect>');
@@ -566,7 +734,8 @@
             const y = top + (plotHeight / 3) * index;
             const value = max - (range / 3) * index;
             return '<line class="chart-gridline" x1="' + left + '" y1="' + y + '" x2="' + (width - right) + '" y2="' + y + '"></line>' +
-                '<text class="chart-axis-label" x="' + (left - 8) + '" y="' + (y + 3) + '" text-anchor="end">' + value.toFixed(1) + '</text>';
+                '<text class="chart-axis-label" x="' + (left - 8) + '" y="' + (y + 3) + '" text-anchor="end">' +
+                value.toFixed(label.indexOf("m s") >= 0 ? 3 : 1) + '</text>';
         }).join("");
         const path = coordinates.map(function (point, index) {
             return (index ? "L" : "M") + point.x.toFixed(1) + "," + point.y.toFixed(1);
@@ -583,10 +752,36 @@
         svg.innerHTML = grid + '<path class="chart-line" d="' + path + '" stroke="' + color + '"></path>' + dots + dateLabels;
     }
 
+    function renderExploreData(records) {
+        const geostrophic = isGeostrophicVariable(selectedVariable);
+        const variableLabel = geostrophic
+            ? geostrophicVariableLabels[selectedVariable]
+            : selectedVariable.toUpperCase();
+        document.getElementById("records-title").textContent = geostrophic
+            ? selectedGeostrophicRecord ? "Selected Copernicus grid cell" : "Copernicus geostrophic grid"
+            : selection
+                ? (selection.type === "point" ? "Point sample records" : "Polygon average records")
+                : "Raw demonstration records";
+        renderMetrics(records);
+        renderTable(records);
+        if (geostrophic) {
+            const color = selectedVariable === "speed" ? "#ec7014" : "#4575b4";
+            renderChart("geostrophic-chart", records, selectedVariable, color, geostrophicVariableUnits[selectedVariable]);
+            document.getElementById("geostrophic-chart-title").textContent = variableLabel;
+            document.getElementById("geostrophic-chart-note").textContent =
+                "Single-date Copernicus snapshot · SSH-derived surface velocity, not CUTI or BEUTI.";
+            return;
+        }
+        renderChart("cuti-chart", records, "cuti", "#078c83", "CUTI demo units");
+        renderChart("beuti-chart", records, "beuti", "#e47e66", "BEUTI demo units");
+    }
+
     function renderTable(records) {
         recordsBody.replaceChildren();
         const rows = records.slice().sort(function (a, b) {
-            return b.date.localeCompare(a.date) || a.site.localeCompare(b.site);
+            return isGeostrophicVariable(selectedVariable)
+                ? a.id - b.id
+                : b.date.localeCompare(a.date) || a.site.localeCompare(b.site);
         });
         rows.slice(0, visibleRecordCount).forEach(function (record) {
             const row = document.createElement("tr");
@@ -604,10 +799,13 @@
             recordsBody.appendChild(row);
         });
         const variableHeading = document.getElementById("records-variable-heading");
-        variableHeading.replaceChildren(selectedVariable.toUpperCase() + " ");
-        const demoLabel = document.createElement("span");
-        demoLabel.textContent = "(demo)";
-        variableHeading.appendChild(demoLabel);
+        const geostrophic = isGeostrophicVariable(selectedVariable);
+        variableHeading.replaceChildren(
+            (geostrophic ? geostrophicVariableLabels[selectedVariable] : selectedVariable.toUpperCase()) + " "
+        );
+        const sourceLabel = document.createElement("span");
+        sourceLabel.textContent = geostrophic ? "(Copernicus)" : "(demo)";
+        variableHeading.appendChild(sourceLabel);
         emptyState.hidden = rows.length > 0;
         const moreButton = document.getElementById("show-more-records");
         const remainingRecords = rows.length - visibleRecordCount;
@@ -615,15 +813,20 @@
         moreButton.textContent = "Show 5 more (" + remainingRecords + " remaining)";
         document.getElementById("records-caption").textContent = "Showing " +
             Math.min(visibleRecordCount, rows.length) + " of " + rows.length +
-            " matching records for " + selectedVariable.toUpperCase() + ". Exports include all variables.";
-        const location = selection
+            " matching " + (geostrophic ? "grid cells" : "records") + " for " +
+            (geostrophic ? geostrophicVariableLabels[selectedVariable] : selectedVariable.toUpperCase()) +
+            (geostrophic ? " · one latest-time snapshot" : ". Exports include all variables.");
+        const location = selectedGeostrophicRecord
+            ? selectedGeostrophicRecord.site + " · "
+            : selection
             ? selection.name + " · "
             : selectedSites.length > 1
                 ? selectedSites.length + " communities · "
                 : selectedSites.length === 1
                     ? selectedSites[0] + " · "
                     : "";
-        document.getElementById("filter-summary").textContent = location + records.length + " demo records · " +
+        document.getElementById("filter-summary").textContent = location + records.length +
+            (geostrophic ? " Copernicus grid cells · " : " demo records · ") +
             (records.length ? formatDate(records[0].date) + " – " + formatDate(records[records.length - 1].date) : "no matching dates");
     }
 
@@ -636,6 +839,22 @@
         const instructions = document.getElementById("draw-instructions");
         pointButton.setAttribute("aria-pressed", String(drawingMode === "point"));
         polygonButton.setAttribute("aria-pressed", String(drawingMode === "polygon"));
+        if (isGeostrophicVariable(selectedVariable)) {
+            document.getElementById("draw-buttons").hidden = true;
+            document.getElementById("draw-tools").hidden = false;
+            document.getElementById("draw-tools").querySelector(".site-list-label").textContent =
+                "Inspect a Copernicus grid cell";
+            clearButton.hidden = !selectedGeostrophicRecord;
+            finishButton.hidden = true;
+            cancelButton.hidden = true;
+            instructions.textContent = selectedGeostrophicRecord
+                ? selectedGeostrophicRecord.site + " selected · values below show this grid cell."
+                : "Click a colored raster cell or current arrow to load its values into Explore Data.";
+            return;
+        }
+        document.getElementById("draw-buttons").hidden = false;
+        document.getElementById("draw-tools").querySelector(".site-list-label").textContent =
+            "Select an area on the map";
         finishButton.hidden = drawingMode !== "polygon" || polygonDraft.length < 3;
         cancelButton.hidden = !drawingMode;
         clearButton.hidden = !selection;
@@ -654,19 +873,13 @@
     function render() {
         visibleRecordCount = initialRecordCount;
         const records = selectedRecords();
-        document.getElementById("records-title").textContent = selection
-            ? (selection.type === "point" ? "Point sample records" : "Polygon average records")
-            : "Raw demonstration records";
         document.getElementById("map-variable").value = selectedVariable;
         updateCommunityPicker();
         document.querySelectorAll(".chart-panel").forEach(function (panel) {
-            panel.hidden = panel.dataset.variable !== selectedVariable;
+            panel.hidden = panel.dataset.variable !== (isGeostrophicVariable(selectedVariable) ? "geostrophic" : selectedVariable);
         });
-        renderMetrics(records);
+        renderExploreData(records);
         renderMap();
-        renderChart("cuti-chart", records, "cuti", "#078c83", "CUTI demo units");
-        renderChart("beuti-chart", records, "beuti", "#e47e66", "BEUTI demo units");
-        renderTable(records);
     }
 
     function zoomMap(factor, anchor) {
@@ -707,18 +920,29 @@
 
     function exportRecords(format) {
         const records = selectedRecords();
+        const geostrophic = isGeostrophicVariable(selectedVariable);
         if (format === "json") {
-            download("ghana-upwelling-demo.json", JSON.stringify(records, null, 2), "application/json");
+            download(
+                geostrophic ? "ghana-geostrophic-snapshot.json" : "ghana-upwelling-demo.json",
+                JSON.stringify(records, null, 2),
+                "application/json"
+            );
             return;
         }
-        const columns = ["date", "site", "latitude", "longitude", "cuti", "beuti"];
+        const columns = geostrophic
+            ? ["date", "site", "latitude", "longitude", "speed", "eastward", "northward"]
+            : ["date", "site", "latitude", "longitude", "cuti", "beuti"];
         const csv = [columns.join(",")].concat(records.map(function (record) {
             return columns.map(function (column) {
                 const value = String(record[column]);
                 return '"' + value.replace(/"/g, '""') + '"';
             }).join(",");
         })).join("\r\n");
-        download("ghana-upwelling-demo.csv", csv, "text/csv;charset=utf-8");
+        download(
+            geostrophic ? "ghana-geostrophic-snapshot.csv" : "ghana-upwelling-demo.csv",
+            csv,
+            "text/csv;charset=utf-8"
+        );
     }
 
     document.querySelectorAll(".chart-download").forEach(function (button) {
@@ -728,11 +952,21 @@
             clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
             clone.setAttribute("width", "1240");
             clone.setAttribute("height", "470");
-            download(button.dataset.chart + "-demo-chart.svg", new XMLSerializer().serializeToString(clone), "image/svg+xml;charset=utf-8");
+            download(button.dataset.chart + (button.dataset.chart === "geostrophic" ? "-copernicus" : "-demo") +
+                "-chart.svg", new XMLSerializer().serializeToString(clone), "image/svg+xml;charset=utf-8");
         });
     });
     document.getElementById("map-variable").addEventListener("change", function (event) {
         selectedVariable = event.target.value;
+        selectedGeostrophicRecord = null;
+        selection = null;
+        drawingMode = null;
+        polygonDraft = [];
+        selectedSites = [];
+        configureDateFilters();
+        document.getElementById("geostrophic-toggle").checked =
+            isGeostrophicVariable(selectedVariable) && Boolean(window.L);
+        updateDrawingControls();
         render();
     });
     document.getElementById("export-csv").addEventListener("click", function () { exportRecords("csv"); });
@@ -743,12 +977,12 @@
     });
     document.getElementById("reset-filters").addEventListener("click", function () {
         selection = null;
+        selectedGeostrophicRecord = null;
         drawingSnapshot = null;
         drawingMode = null;
         polygonDraft = [];
         selectedSites = [];
-        startInput.value = dates[0];
-        endInput.value = dates[dates.length - 1];
+        configureDateFilters();
         updateDrawingControls();
         render();
     });
@@ -774,7 +1008,23 @@
     [document.getElementById("raster-toggle"), document.getElementById("points-toggle")].forEach(function (input) {
         input.addEventListener("change", renderMap);
     });
-    document.getElementById("geostrophic-toggle").addEventListener("change", renderMap);
+    document.getElementById("geostrophic-toggle").addEventListener("change", function (event) {
+        selection = null;
+        drawingSnapshot = null;
+        drawingMode = null;
+        polygonDraft = [];
+        selectedSites = [];
+        if (event.target.checked && geostrophicRecords.length) {
+            selectedVariable = "speed";
+            selectedGeostrophicRecord = null;
+        } else if (isGeostrophicVariable(selectedVariable)) {
+            selectedVariable = "cuti";
+            selectedGeostrophicRecord = null;
+        }
+        configureDateFilters();
+        updateDrawingControls();
+        render();
+    });
     document.getElementById("zoom-in").addEventListener("click", function () { zoomMap(1.4); });
     document.getElementById("zoom-out").addEventListener("click", function () { zoomMap(1 / 1.4); });
     document.getElementById("zoom-reset").addEventListener("click", function () {
@@ -826,6 +1076,7 @@
     });
     document.getElementById("clear-selection").addEventListener("click", function () {
         selection = null;
+        selectedGeostrophicRecord = null;
         drawingSnapshot = null;
         updateDrawingControls();
         render();

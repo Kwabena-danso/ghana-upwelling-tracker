@@ -69,7 +69,7 @@ class GeostrophicVelocityTests(unittest.TestCase):
                 output_file,
                 dashboard_file,
                 minimum_absolute_coriolis=DEFAULT_MINIMUM_CORIOLIS,
-                dashboard_stride=1,
+                dashboard_stride=2,
             )
 
             with xr.open_dataset(output_file) as result:
@@ -103,7 +103,9 @@ class GeostrophicVelocityTests(unittest.TestCase):
         dashboard_data = json.loads(match.group(1))
         self.assertEqual(dashboard_data["date"], "2024-01-02")
         self.assertEqual(dashboard_data["minimum_coriolis_s-1"], DEFAULT_MINIMUM_CORIOLIS)
-        self.assertEqual(len(dashboard_data["vectors"]), 8)
+        self.assertEqual(len(dashboard_data["cells"]), 8)
+        self.assertEqual(len(dashboard_data["vectors"]), 2)
+        self.assertEqual(dashboard_data["cells"][4]["bounds"], [6.0, -5.0, 8.0, -3.0])
 
     def test_rejects_unknown_units_and_preserves_raw_file(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

@@ -550,7 +550,7 @@
         geostrophicRasterLayer.addTo(geostrophicLeafletMap);
         geostrophicCurrentLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
         geostrophicCommunityLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
-        geostrophicLegendControl = window.L.control({ position: "topleft" });
+        geostrophicLegendControl = window.L.control({ position: "bottomleft" });
         geostrophicLegendControl.onAdd = function () {
             const legend = window.L.DomUtil.create("div", "leaflet-current-legend");
             legend.innerHTML = "";
@@ -608,7 +608,7 @@
         geostrophicRasterLayer.setOpacity(rasterVisible ? 1 : 0);
         geostrophicRasterLayer.redraw();
 
-        const arrowStride = geostrophicData.arrow_stride || 4;
+        const arrowStride = geostrophicData.arrow_stride || 8;
         const arrowRecords = geostrophicTimeSeries
             ? geostrophicRecords.filter(function (record) {
                 return record.row % arrowStride === 0 && record.column % arrowStride === 0;
@@ -617,15 +617,17 @@
                 return geostrophicRecordByCoordinate.get(vector.latitude + "|" + vector.longitude);
             }).filter(Boolean);
         arrowRecords.forEach(function (record) {
-            const color = geostrophicColor(record[selectedVariable]);
             const direction = Math.atan2(record.eastward, record.northward) * 180 / Math.PI;
             const icon = window.L.divIcon({
                 className: "leaflet-current-icon",
-                iconSize: [12, 12],
-                iconAnchor: [6, 6],
+                iconSize: [16, 16],
+                iconAnchor: [8, 8],
                 html: '<span class="leaflet-current-arrow" style="--arrow-direction:' +
-                    direction.toFixed(1) + "deg;--speed-color:rgb(" + color.join(",") + ')">' +
-                    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22V4M5 11l7-7 7 7"></path></svg></span>'
+                    direction.toFixed(1) + 'deg">' +
+                    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+                    '<path class="leaflet-arrow-halo" d="M12 20V5M6.5 10.5 12 5l5.5 5.5"></path>' +
+                    '<path class="leaflet-arrow-shaft" d="M12 20V5M6.5 10.5 12 5l5.5 5.5"></path>' +
+                    '</svg></span>'
             });
             const marker = window.L.marker([record.latitude, record.longitude], {
                 icon: icon,

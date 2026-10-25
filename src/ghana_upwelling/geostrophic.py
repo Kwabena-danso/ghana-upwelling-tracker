@@ -175,7 +175,7 @@ def derive_geostrophic_velocity(
     output_file: Path,
     dashboard_file: Path | None = DEFAULT_DASHBOARD_FILE,
     minimum_absolute_coriolis: float = DEFAULT_MINIMUM_CORIOLIS,
-    dashboard_stride: int = 2,
+    dashboard_stride: int = 8,
 ) -> dict[str, Any]:
     """Write geostrophic velocity fields and a time-series dashboard snapshot."""
     import numpy as np
@@ -354,7 +354,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--dashboard-stride",
         type=int,
-        default=4,
+        default=8,
         help="Keep every Nth latitude/longitude point in the dashboard vector overlay.",
     )
     return parser

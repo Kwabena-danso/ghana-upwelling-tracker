@@ -550,7 +550,7 @@
         geostrophicRasterLayer.addTo(geostrophicLeafletMap);
         geostrophicCurrentLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
         geostrophicCommunityLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
-        geostrophicLegendControl = window.L.control({ position: "bottomleft" });
+        geostrophicLegendControl = window.L.control({ position: "bottomright" });
         geostrophicLegendControl.onAdd = function () {
             const legend = window.L.DomUtil.create("div", "leaflet-current-legend");
             legend.innerHTML = "";

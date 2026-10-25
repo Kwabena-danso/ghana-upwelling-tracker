@@ -5,7 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Explore Ghana coastal upwelling indicators with clearly labeled demonstration data.">
     <title>Ghana Upwelling Explorer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="dashboard.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
     <script src="demo_data.js" defer></script>
     <script src="data/processed/geostrophic_velocity.js" defer></script>
     <script src="dashboard.js" defer></script>
@@ -28,7 +30,8 @@
             <div class="explorer-layout">
                 <section class="panel map-panel" aria-label="Interactive map">
                     <div class="map-frame">
-                        <svg id="site-map" role="img" aria-label="Ghana coastal data map with demonstration communities and optional Copernicus geostrophic current vectors"></svg>
+                        <svg id="site-map" role="img" aria-label="Ghana coastal demonstration map"></svg>
+                        <div id="geostrophic-leaflet" role="application" aria-label="Interactive Copernicus geostrophic current map"></div>
                         <div class="map-variable-control">
                             <label for="map-variable">Variable</label>
                             <select id="map-variable" aria-label="Select map variable">
@@ -75,7 +78,7 @@
                     </section>
 
                     <section class="panel map-sidebar" aria-label="Map layers and communities">
-                        <div class="draw-tools" role="group" aria-label="Draw a data selection on the map">
+                        <div class="draw-tools" id="draw-tools" role="group" aria-label="Draw a data selection on the map">
                             <p class="site-list-label">Select an area on the map</p>
                             <div class="draw-buttons">
                                 <button class="button button-quiet draw-button" id="draw-point" type="button" aria-pressed="false">Point</button>
@@ -91,7 +94,7 @@
                         <div class="map-toggles" aria-label="Map layers">
                             <label><input id="raster-toggle" type="checkbox" checked> Raster layer <span>(demo)</span></label>
                             <label><input id="points-toggle" type="checkbox" checked> Community points</label>
-                            <label><input id="geostrophic-toggle" type="checkbox" disabled> Geostrophic current vectors <span>(Copernicus)</span></label>
+                            <label><input id="geostrophic-toggle" type="checkbox" disabled> Geostrophic current map <span>(Copernicus)</span></label>
                         </div>
                         <p class="geostrophic-status" id="geostrophic-status" aria-live="polite">No processed Copernicus sea-surface-height snapshot loaded.</p>
                         <div class="raster-legend" id="raster-legend">

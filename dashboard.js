@@ -21,6 +21,14 @@
     let drawingSnapshot = null;
     let visibleRecordCount = initialRecordCount;
     let selectedSites = [];
+    let geostrophicLeafletMap = null;
+    let geostrophicCurrentLayer = null;
+    let geostrophicCommunityLayer = null;
+    let geostrophicLegendControl = null;
+    let geostrophicMapHasFitBounds = false;
+    if (geostrophicData && window.L) {
+        document.getElementById("geostrophic-toggle").checked = true;
+    }
 
     const allCommunitiesOption = document.createElement("label");
     allCommunitiesOption.className = "community-option community-option-all";
@@ -230,12 +238,151 @@
                 : selectedSites.length + " communities";
     }
 
+    function currentSpeedColor(speed, maximumSpeed) {
+        const palette = ["#fff7bc", "#fec44f", "#fe9929", "#ec7014", "#cc4c02"];
+        const fraction = maximumSpeed > 0 ? Math.min(1, speed / maximumSpeed) : 0;
+        return palette[Math.min(palette.length - 1, Math.floor(fraction * palette.length))];
+    }
+
+    function initializeGeostrophicLeaflet() {
+        if (!window.L) return false;
+        if (geostrophicLeafletMap) return true;
+
+        geostrophicLeafletMap = window.L.map("geostrophic-leaflet", {
+            scrollWheelZoom: true,
+            zoomControl: true,
+            preferCanvas: true
+        });
+        window.L.tileLayer(
+            "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
+            {
+                maxZoom: 19,
+                attribution: "Tiles &copy; Esri — Sources: Esri, TomTom, Garmin, FAO, NOAA, USGS, OpenStreetMap contributors, and the GIS User Community"
+            }
+        ).addTo(geostrophicLeafletMap);
+        geostrophicCurrentLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
+        geostrophicCommunityLayer = window.L.layerGroup().addTo(geostrophicLeafletMap);
+        geostrophicLegendControl = window.L.control({ position: "topright" });
+        geostrophicLegendControl.onAdd = function () {
+            const legend = window.L.DomUtil.create("div", "leaflet-current-legend");
+            legend.innerHTML =
+                "<strong>Geostrophic speed</strong>" +
+                '<div class="leaflet-speed-gradient" aria-hidden="true"></div>' +
+                '<div class="leaflet-speed-labels"><span>Slow</span><span>Fast</span></div>' +
+                "<div>Arrows show current direction</div>";
+            return legend;
+        };
+        geostrophicLegendControl.addTo(geostrophicLeafletMap);
+        return true;
+    }
+
+    function renderGeostrophicLeaflet() {
+        if (!initializeGeostrophicLeaflet()) return false;
+
+        const mapFrame = document.querySelector(".map-frame");
+        const mapSidebar = document.querySelector(".map-sidebar");
+        const communityPointsToggle = document.getElementById("points-toggle");
+        mapFrame.classList.add("is-geostrophic");
+        mapSidebar.classList.add("is-geostrophic");
+        document.getElementById("draw-tools").hidden = true;
+        document.getElementById("raster-toggle").closest("label").hidden = true;
+        document.getElementById("raster-legend").hidden = true;
+        document.getElementById("site-list").hidden = true;
+        document.getElementById("map-variable").disabled = true;
+
+        geostrophicCurrentLayer.clearLayers();
+        geostrophicCommunityLayer.clearLayers();
+        const speeds = geostrophicData.vectors.map(function (vector) {
+            return vector.speed;
+        }).sort(function (first, second) {
+            return first - second;
+        });
+        const maximumSpeed = speeds.length
+            ? speeds[Math.min(speeds.length - 1, Math.floor(speeds.length * 0.95))]
+            : 1;
+
+        geostrophicData.vectors.forEach(function (vector) {
+            const color = currentSpeedColor(vector.speed, maximumSpeed);
+            const direction = Math.atan2(vector.eastward, vector.northward) * 180 / Math.PI;
+            const icon = window.L.divIcon({
+                className: "leaflet-current-icon",
+                iconSize: [22, 22],
+                iconAnchor: [11, 11],
+                html: '<span class="leaflet-current-arrow" style="--arrow-direction:' +
+                    direction.toFixed(1) + "deg;--speed-color:" + color + '">' +
+                    '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22V4M5 11l7-7 7 7"></path></svg></span>'
+            });
+            const marker = window.L.marker([vector.latitude, vector.longitude], {
+                icon: icon,
+                keyboard: true,
+                title: "Geostrophic speed " + vector.speed.toFixed(3) + " m/s"
+            });
+            marker.bindPopup(
+                '<div class="leaflet-current-popup"><strong>Surface geostrophic current</strong><br>' +
+                "Date: " + geostrophicData.date + "<br>" +
+                "Speed: " + vector.speed.toFixed(3) + " m s⁻¹<br>" +
+                "Eastward: " + vector.eastward.toFixed(3) + " m s⁻¹<br>" +
+                "Northward: " + vector.northward.toFixed(3) + " m s⁻¹<br>" +
+                "Position: " + vector.latitude.toFixed(3) + "°N, " +
+                vector.longitude.toFixed(3) + "°</div>"
+            );
+            marker.addTo(geostrophicCurrentLayer);
+        });
+
+        if (communityPointsToggle.checked) {
+            demo.sites.forEach(function (site) {
+                const marker = window.L.circleMarker([site.latitude, site.longitude], {
+                    radius: 5,
+                    color: "#684400",
+                    weight: 1,
+                    fillColor: "#f39200",
+                    fillOpacity: 1,
+                    title: site.name
+                });
+                marker.bindPopup(
+                    "<strong>" + site.name + "</strong><br>Approximate demonstration location"
+                );
+                marker.addTo(geostrophicCommunityLayer);
+            });
+        }
+
+        geostrophicLeafletMap.invalidateSize({ pan: false });
+        if (!geostrophicMapHasFitBounds) {
+            const latitudeExtent = geostrophicData.latitude_extent;
+            const longitudeExtent = geostrophicData.longitude_extent;
+            geostrophicLeafletMap.fitBounds(
+                [
+                    [latitudeExtent[0], longitudeExtent[0]],
+                    [latitudeExtent[1], longitudeExtent[1]]
+                ],
+                { padding: [18, 18], maxZoom: 6 }
+            );
+            geostrophicMapHasFitBounds = true;
+        }
+        document.getElementById("geostrophic-status").textContent =
+            "Copernicus " + geostrophicData.date + " · " + geostrophicData.vectors.length +
+            " mapped currents · |f| < " +
+            Number(geostrophicData["minimum_coriolis_s-1"]).toExponential(1) + " s⁻¹ masked";
+        return true;
+    }
+
     function renderMap() {
         const map = document.getElementById("site-map");
+        const mapFrame = document.querySelector(".map-frame");
+        const mapSidebar = document.querySelector(".map-sidebar");
         const rasterVisible = document.getElementById("raster-toggle").checked;
         const pointsVisible = document.getElementById("points-toggle").checked;
         const geostrophicToggle = document.getElementById("geostrophic-toggle");
-        const geostrophicVisible = Boolean(geostrophicData && geostrophicData.vectors.length && geostrophicToggle.checked);
+        const hasGeostrophicVectors = Boolean(geostrophicData && geostrophicData.vectors.length);
+        geostrophicToggle.disabled = !hasGeostrophicVectors || !window.L;
+        if (hasGeostrophicVectors && geostrophicToggle.checked && renderGeostrophicLeaflet()) return;
+        mapFrame.classList.remove("is-geostrophic");
+        mapSidebar.classList.remove("is-geostrophic");
+        document.getElementById("draw-tools").hidden = false;
+        document.getElementById("raster-toggle").closest("label").hidden = false;
+        document.getElementById("raster-legend").hidden = false;
+        document.getElementById("site-list").hidden = Boolean(selection);
+        document.getElementById("map-variable").disabled = false;
         const raster = [];
         const rasterValues = demo.records.map(function (record) { return record[selectedVariable]; });
         const rasterMinimum = Math.min.apply(null, rasterValues);
@@ -261,20 +408,6 @@
         const verticalLines = [mapPlot.left, 205, 350, 495, mapPlot.right].map(function (x) {
             return '<line class="map-grid-line" x1="' + x + '" y1="' + mapPlot.top + '" x2="' + x + '" y2="' + mapPlot.bottom + '"></line>';
         }).join("");
-        const maximumSpeed = geostrophicData
-            ? geostrophicData.vectors.reduce(function (maximum, vector) { return Math.max(maximum, vector.speed); }, 0)
-            : 0;
-        const geostrophicVectors = geostrophicVisible ? geostrophicData.vectors.map(function (vector) {
-            const point = mapPoint(vector);
-            const length = 5 + 13 * Math.sqrt(vector.speed / (maximumSpeed || 1));
-            const direction = Math.atan2(-vector.northward, vector.eastward);
-            const endX = point.x + Math.cos(direction) * length;
-            const endY = point.y + Math.sin(direction) * length;
-            return '<line class="geostrophic-vector" x1="' + point.x.toFixed(1) + '" y1="' + point.y.toFixed(1) +
-                '" x2="' + endX.toFixed(1) + '" y2="' + endY.toFixed(1) +
-                '"><title>' + vector.speed.toFixed(3) + ' m/s · eastward ' + vector.eastward.toFixed(3) +
-                ' m/s · northward ' + vector.northward.toFixed(3) + ' m/s</title></line>';
-        }).join("") : "";
         const longitudeLabels = [
             { value: demo.raster.minLongitude, label: "3.99°W" },
             { value: -2.368, label: "2.37°W" },
@@ -328,18 +461,14 @@
         map.setAttribute("viewBox", [mapView.x, mapView.y, mapView.width, mapView.height].join(" "));
         map.classList.toggle("map-drawing", Boolean(drawingMode));
         document.getElementById("raster-legend-title").textContent = selectedVariable.toUpperCase() + " raster · demo";
-        document.getElementById("site-list").hidden = Boolean(selection);
-        geostrophicToggle.disabled = !geostrophicData || !geostrophicData.vectors.length;
-        document.getElementById("geostrophic-status").textContent = geostrophicData && geostrophicData.vectors.length
-            ? "Copernicus " + geostrophicData.date + " · " + geostrophicData.vectors.length +
-                " current vectors · |f| < " + Number(geostrophicData["minimum_coriolis_s-1"]).toExponential(1) + " s⁻¹ masked"
+        document.getElementById("geostrophic-status").textContent = hasGeostrophicVectors
+            ? window.L ? "Copernicus currents ready · enable the map layer to explore."
+                : "Copernicus data found; Leaflet could not be loaded."
             : "No processed Copernicus sea-surface-height snapshot loaded.";
-        map.innerHTML = '<defs><marker id="current-arrowhead" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#143f72"></path></marker></defs>' +
-            '<rect x="0" y="0" width="700" height="500" fill="#edf6f6"></rect>' +
+        map.innerHTML = '<rect x="0" y="0" width="700" height="500" fill="#edf6f6"></rect>' +
             (rasterVisible ? '<g class="raster-layer" aria-label="Synthetic demo raster covering the displayed coordinate extent">' + raster.join("") + '</g>' : "") +
             '<g class="map-grid">' + horizontalLines + verticalLines + '</g>' +
             longitudeLabels + latitudeLabels +
-            (geostrophicVisible ? '<g class="geostrophic-layer" aria-label="Copernicus sea-surface-height-derived geostrophic current vectors">' + geostrophicVectors + '</g>' : "") +
             (pointsVisible ? '<g class="points-layer">' + markers + '</g>' : "") +
             selectedFeature + draftFeature;
         map.querySelectorAll(".map-marker").forEach(function (marker) {

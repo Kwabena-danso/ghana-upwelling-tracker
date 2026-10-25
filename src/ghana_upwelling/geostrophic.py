@@ -133,9 +133,9 @@ def derive_geostrophic_velocity(
     output_file: Path,
     dashboard_file: Path | None = DEFAULT_DASHBOARD_FILE,
     minimum_absolute_coriolis: float = DEFAULT_MINIMUM_CORIOLIS,
-    dashboard_stride: int = 4,
+    dashboard_stride: int = 2,
 ) -> dict[str, Any]:
-    """Write geostrophic velocity fields and an optional latest-time dashboard snapshot."""
+    """Write geostrophic velocity fields and a latest-time dashboard snapshot."""
     import numpy as np
     import xarray as xr
 

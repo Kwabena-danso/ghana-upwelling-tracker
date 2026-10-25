@@ -15,7 +15,10 @@ from ghana_upwelling.geostrophic import (
 
 
 @unittest.skipUnless(
-    importlib.util.find_spec("xarray") and importlib.util.find_spec("dask"),
+    all(
+        importlib.util.find_spec(package)
+        for package in ("xarray", "dask")
+    ),
     "xarray and dask are required for geostrophic processing tests",
 )
 class GeostrophicVelocityTests(unittest.TestCase):

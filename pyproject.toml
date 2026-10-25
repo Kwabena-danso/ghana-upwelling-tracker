@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ghana-upwelling-tracker"
+version = "0.1.0"
+description = "Copernicus Marine data acquisition tools for Ghana's upwelling system"
+requires-python = ">=3.10"
+dependencies = [
+    "copernicusmarine",
+    "xarray",
+    "h5netcdf",
+    "dask[array]",
+]
+
+[project.scripts]
+ghana-upwelling-fetch = "ghana_upwelling.cli:main"
+ghana-upwelling-process = "ghana_upwelling.process:main"
+ghana-upwelling-geostrophic = "ghana_upwelling.geostrophic:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+ghana_upwelling = ["datasets.json"]

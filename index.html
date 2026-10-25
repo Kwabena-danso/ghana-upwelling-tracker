@@ -5,8 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Explore Ghana coastal upwelling indicators with clearly labeled demonstration data.">
     <title>Ghana Upwelling Explorer</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="dashboard.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
     <script src="demo_data.js" defer></script>
+    <script src="data/processed/geostrophic_velocity.js" defer></script>
     <script src="dashboard.js" defer></script>
 </head>
 <body>
@@ -27,12 +30,16 @@
             <div class="explorer-layout">
                 <section class="panel map-panel" aria-label="Interactive map">
                     <div class="map-frame">
-                        <svg id="site-map" role="img" aria-label="Synthetic Ghana coastal data map with community locations"></svg>
+                        <svg id="site-map" role="img" aria-label="Ghana coastal demonstration map"></svg>
+                        <div id="geostrophic-leaflet" role="application" aria-label="Interactive Copernicus geostrophic current map"></div>
                         <div class="map-variable-control">
                             <label for="map-variable">Variable</label>
                             <select id="map-variable" aria-label="Select map variable">
-                                <option value="cuti">CUTI</option>
-                                <option value="beuti">BEUTI</option>
+                                <option value="speed" disabled>Geostrophic speed</option>
+                                <option value="eastward" disabled>Eastward velocity</option>
+                                <option value="northward" disabled>Northward velocity</option>
+                                <option value="cuti">CUTI · demo</option>
+                                <option value="beuti">BEUTI · demo</option>
                                 <option value="sst" disabled>SST · coming soon</option>
                                 <option value="ssh" disabled>SSH · coming soon</option>
                                 <option value="sol" disabled>SOL · coming soon</option>
@@ -53,7 +60,7 @@
                             <p class="eyebrow">EXPLORE DATA</p>
                             <button class="button button-quiet" id="reset-filters" type="button">Reset</button>
                         </div>
-                        <div class="filter-control community-filter">
+                        <div class="filter-control community-filter" id="community-filter">
                             <span>Community</span>
                             <details class="community-picker" id="community-picker">
                                 <summary id="community-picker-label">All communities</summary>
@@ -66,17 +73,17 @@
                                 <input id="start-date" type="date" aria-label="Start date">
                             </label>
                             <label class="filter-control">
-                                <span>To</span>
-                                <input id="end-date" type="date" aria-label="End date">
+                                <span>To · map date</span>
+                                <input id="end-date" type="date" aria-label="End date and Copernicus map date">
                             </label>
                         </div>
                         <p id="filter-summary" class="filter-summary" aria-live="polite"></p>
                     </section>
 
                     <section class="panel map-sidebar" aria-label="Map layers and communities">
-                        <div class="draw-tools" role="group" aria-label="Draw a data selection on the map">
+                        <div class="draw-tools" id="draw-tools" role="group" aria-label="Draw a data selection on the map">
                             <p class="site-list-label">Select an area on the map</p>
-                            <div class="draw-buttons">
+                            <div class="draw-buttons" id="draw-buttons">
                                 <button class="button button-quiet draw-button" id="draw-point" type="button" aria-pressed="false">Point</button>
                                 <button class="button button-quiet draw-button" id="draw-polygon" type="button" aria-pressed="false">Polygon</button>
                             </div>
@@ -90,7 +97,9 @@
                         <div class="map-toggles" aria-label="Map layers">
                             <label><input id="raster-toggle" type="checkbox" checked> Raster layer <span>(demo)</span></label>
                             <label><input id="points-toggle" type="checkbox" checked> Community points</label>
+                            <label><input id="geostrophic-toggle" type="checkbox" disabled> Geostrophic current map <span>(Copernicus)</span></label>
                         </div>
+                        <p class="geostrophic-status" id="geostrophic-status" aria-live="polite">No processed Copernicus sea-surface-height snapshot loaded.</p>
                         <div class="raster-legend" id="raster-legend">
                             <p class="site-list-label" id="raster-legend-title">CUTI raster · demo</p>
                             <div class="raster-gradient" aria-hidden="true"></div>
@@ -105,7 +114,19 @@
                         <div class="metric-grid" id="metrics"></div>
                     </section>
 
-                    <section class="chart-grid" aria-label="Upwelling index charts">
+                    <section class="chart-grid" aria-label="Data charts">
+                        <article class="panel chart-panel" data-variable="geostrophic" hidden>
+                            <div class="panel-heading">
+                                <div>
+                                    <p class="eyebrow">COPERNICUS TIME SERIES</p>
+                                    <h2 id="geostrophic-chart-title">Geostrophic speed</h2>
+                                    <p class="panel-subtitle">Daily spatial mean across selected grid cells</p>
+                                </div>
+                                <button class="button button-quiet chart-download" data-chart="geostrophic" type="button">SVG</button>
+                            </div>
+                            <div class="chart-wrap"><svg id="geostrophic-chart" role="img" aria-label="Copernicus geostrophic time series"></svg></div>
+                            <p class="unit-note" id="geostrophic-chart-note">Daily SSH-derived surface velocity; not CUTI or BEUTI.</p>
+                        </article>
                         <article class="panel chart-panel" data-variable="cuti">
                             <div class="panel-heading">
                                 <div>

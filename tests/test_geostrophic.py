@@ -1,6 +1,8 @@
+import base64
 import importlib.util
 import json
 import re
+import struct
 import sys
 import tempfile
 import unittest
@@ -106,6 +108,12 @@ class GeostrophicVelocityTests(unittest.TestCase):
         self.assertEqual(len(dashboard_data["cells"]), 8)
         self.assertEqual(len(dashboard_data["vectors"]), 2)
         self.assertEqual(dashboard_data["cells"][4]["bounds"], [6.0, -5.0, 8.0, -3.0])
+        self.assertEqual(dashboard_data["time_series"]["dates"], ["2024-01-01", "2024-01-02"])
+        frame_values = struct.unpack(
+            "<48f",
+            base64.b64decode(dashboard_data["time_series"]["values"]),
+        )
+        self.assertAlmostEqual(frame_values[24], frame_values[0] * 2, places=6)
 
     def test_rejects_unknown_units_and_preserves_raw_file(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

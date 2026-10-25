@@ -1,6 +1,7 @@
 """Derive surface geostrophic velocities from sea-surface-height gradients."""
 
 import argparse
+import base64
 import json
 import math
 import os
@@ -59,25 +60,46 @@ def _write_dashboard_snapshot(dataset: Any, output_file: Path, stride: int) -> N
 
     latitude_edges = coordinate_edges(latitude)
     longitude_edges = coordinate_edges(longitude)
-    latest = dataset
-    if "time" in latest.dims:
-        latest = latest.isel(time=-1)
-
-    eastward = latest["eastward_geostrophic_velocity"].values
-    northward = latest["northward_geostrophic_velocity"].values
-    speed = latest["geostrophic_speed"].values
+    eastward = dataset["eastward_geostrophic_velocity"].values
+    northward = dataset["northward_geostrophic_velocity"].values
+    speed = dataset["geostrophic_speed"].values
+    if "time" not in dataset["geostrophic_speed"].dims:
+        eastward = eastward[np.newaxis, ...]
+        northward = northward[np.newaxis, ...]
+        speed = speed[np.newaxis, ...]
+    field_values = np.stack((eastward, northward, speed), axis=-1)
+    valid_grid = np.any(np.all(np.isfinite(field_values), axis=-1), axis=0)
     cells = []
     for row, latitude_value in enumerate(latitude):
         for column, longitude_value in enumerate(longitude):
-            east = float(eastward[row, column])
-            north = float(northward[row, column])
-            magnitude = float(speed[row, column])
-            if not all(math.isfinite(value) for value in (east, north, magnitude)):
+            if not valid_grid[row, column]:
                 continue
             cells.append(
                 {
                     "latitude": float(latitude_value),
                     "longitude": float(longitude_value),
+                    "bounds": [
+                        float(min(latitude_edges[row], latitude_edges[row + 1])),
+                        float(min(longitude_edges[column], longitude_edges[column + 1])),
+                        float(max(latitude_edges[row], latitude_edges[row + 1])),
+                        float(max(longitude_edges[column], longitude_edges[column + 1])),
+                    ],
+                    "row": row,
+                    "column": column,
+                }
+            )
+
+    latest_fields = field_values[-1]
+    vectors = []
+    for row in range(0, latitude.size, stride):
+        for column in range(0, longitude.size, stride):
+            east, north, magnitude = map(float, latest_fields[row, column])
+            if not all(math.isfinite(value) for value in (east, north, magnitude)):
+                continue
+            vectors.append(
+                {
+                    "latitude": float(latitude[row]),
+                    "longitude": float(longitude[column]),
                     "bounds": [
                         float(min(latitude_edges[row], latitude_edges[row + 1])),
                         float(min(longitude_edges[column], longitude_edges[column + 1])),
@@ -90,48 +112,14 @@ def _write_dashboard_snapshot(dataset: Any, output_file: Path, stride: int) -> N
                 }
             )
 
-    selection = {
-        latitude_name: slice(None, None, stride),
-        longitude_name: slice(None, None, stride),
-    }
-    sampled_latitude = latitude[::stride]
-    sampled_longitude = longitude[::stride]
-    sampled_eastward = eastward[::stride, ::stride]
-    sampled_northward = northward[::stride, ::stride]
-    sampled_speed = speed[::stride, ::stride]
-    vectors = []
-    for row, latitude_value in enumerate(sampled_latitude):
-        for column, longitude_value in enumerate(sampled_longitude):
-            east = float(sampled_eastward[row, column])
-            north = float(sampled_northward[row, column])
-            magnitude = float(sampled_speed[row, column])
-            if not all(math.isfinite(value) for value in (east, north, magnitude)):
-                continue
-            source_row = row * stride
-            source_column = column * stride
-            vectors.append(
-                {
-                    "latitude": float(latitude_value),
-                    "longitude": float(longitude_value),
-                    "bounds": [
-                        float(min(latitude_edges[source_row], latitude_edges[source_row + 1])),
-                        float(min(longitude_edges[source_column], longitude_edges[source_column + 1])),
-                        float(max(latitude_edges[source_row], latitude_edges[source_row + 1])),
-                        float(max(longitude_edges[source_column], longitude_edges[source_column + 1])),
-                    ],
-                    "eastward": east,
-                    "northward": north,
-                    "speed": magnitude,
-                }
-            )
-
-    timestamp = None
+    timestamps = []
     if "time" in dataset.coords and dataset.sizes.get("time", 0):
-        timestamp = str(dataset["time"].values[-1])
-        if "T" in timestamp:
-            timestamp = timestamp.split("T", 1)[0]
+        timestamps = [str(value).split("T", 1)[0] for value in dataset["time"].values]
+    if not timestamps:
+        timestamps = [None]
+    packed_values = np.asarray(field_values[:, valid_grid, :], dtype="<f4").tobytes(order="C")
     snapshot = {
-        "date": timestamp,
+        "date": timestamps[-1],
         "method": "surface geostrophic velocity from SSH gradients",
         "citation": "Jacox et al. (2018), https://doi.org/10.1029/2018JC014187",
         "interpretation": (
@@ -149,6 +137,12 @@ def _write_dashboard_snapshot(dataset: Any, output_file: Path, stride: int) -> N
         ],
         "cells": cells,
         "vectors": vectors,
+        "arrow_stride": stride,
+        "time_series": {
+            "dates": timestamps,
+            "encoding": "base64-little-endian-float32-eastward-northward-speed",
+            "values": base64.b64encode(packed_values).decode("ascii"),
+        },
     }
     encoded = json.dumps(snapshot, separators=(",", ":"), allow_nan=False)
     encoded = encoded.replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
@@ -183,7 +177,7 @@ def derive_geostrophic_velocity(
     minimum_absolute_coriolis: float = DEFAULT_MINIMUM_CORIOLIS,
     dashboard_stride: int = 2,
 ) -> dict[str, Any]:
-    """Write geostrophic velocity fields and a latest-time dashboard snapshot."""
+    """Write geostrophic velocity fields and a time-series dashboard snapshot."""
     import numpy as np
     import xarray as xr
 
@@ -337,7 +331,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description=(
             "Derive surface geostrophic velocity from the configured sea-surface-height "
-            "zos variable and create a latest-time dashboard snapshot."
+            "zos variable and create a time-series dashboard snapshot."
         )
     )
     parser.add_argument("--input", type=Path, default=DEFAULT_INPUT_FILE)
@@ -346,7 +340,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--dashboard-output",
         type=Path,
         default=DEFAULT_DASHBOARD_FILE,
-        help="Latest-time JavaScript snapshot loaded by the static dashboard.",
+        help="Compressed time-series JavaScript snapshot loaded by the static dashboard.",
     )
     parser.add_argument(
         "--minimum-absolute-coriolis",

@@ -73,8 +73,8 @@
                                 <input id="start-date" type="date" aria-label="Start date">
                             </label>
                             <label class="filter-control">
-                                <span>To</span>
-                                <input id="end-date" type="date" aria-label="End date">
+                                <span>To · map date</span>
+                                <input id="end-date" type="date" aria-label="End date and Copernicus map date">
                             </label>
                         </div>
                         <p id="filter-summary" class="filter-summary" aria-live="polite"></p>
@@ -118,14 +118,14 @@
                         <article class="panel chart-panel" data-variable="geostrophic" hidden>
                             <div class="panel-heading">
                                 <div>
-                                    <p class="eyebrow">COPERNICUS SNAPSHOT</p>
+                                    <p class="eyebrow">COPERNICUS TIME SERIES</p>
                                     <h2 id="geostrophic-chart-title">Geostrophic speed</h2>
-                                    <p class="panel-subtitle">Spatial mean across selected grid cells</p>
+                                    <p class="panel-subtitle">Daily spatial mean across selected grid cells</p>
                                 </div>
                                 <button class="button button-quiet chart-download" data-chart="geostrophic" type="button">SVG</button>
                             </div>
-                            <div class="chart-wrap"><svg id="geostrophic-chart" role="img" aria-label="Copernicus geostrophic snapshot summary"></svg></div>
-                            <p class="unit-note" id="geostrophic-chart-note">Single-date SSH-derived surface velocity snapshot; not CUTI or BEUTI.</p>
+                            <div class="chart-wrap"><svg id="geostrophic-chart" role="img" aria-label="Copernicus geostrophic time series"></svg></div>
+                            <p class="unit-note" id="geostrophic-chart-note">Daily SSH-derived surface velocity; not CUTI or BEUTI.</p>
                         </article>
                         <article class="panel chart-panel" data-variable="cuti">
                             <div class="panel-heading">

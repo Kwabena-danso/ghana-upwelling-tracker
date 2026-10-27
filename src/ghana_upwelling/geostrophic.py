@@ -20,6 +20,7 @@ DEFAULT_MINIMUM_CORIOLIS = 0.0
 DEFAULT_INPUT_FILE = Path("data") / "raw" / "sea_surface_height.nc"
 DEFAULT_OUTPUT_FILE = Path("data") / "processed" / "geostrophic_velocity.nc"
 DEFAULT_DASHBOARD_FILE = Path("data") / "processed" / "geostrophic_velocity.js"
+DEFAULT_DASHBOARD_CHUNK_SIZE = 8
 
 
 def _coordinate_name(dataset: Any, kind: str) -> str:
@@ -92,8 +93,7 @@ def _write_dashboard_snapshot(
         for column, longitude_value in enumerate(longitude):
             if not valid_grid[row, column]:
                 continue
-            cells.append(
-                {
+            cell = {
                     "latitude": float(latitude_value),
                     "longitude": float(longitude_value),
                     "bounds": [
@@ -105,7 +105,10 @@ def _write_dashboard_snapshot(
                     "row": row,
                     "column": column,
                 }
-            )
+            east, north, magnitude = map(float, field_values[-1, row, column])
+            if all(math.isfinite(value) for value in (east, north, magnitude)):
+                cell.update({"eastward": east, "northward": north, "speed": magnitude})
+            cells.append(cell)
 
     time_indices = _dashboard_time_indices(field_values.shape[0], max_time_steps)
     latest_fields = field_values[-1]
@@ -137,10 +140,31 @@ def _write_dashboard_snapshot(
         timestamps = [all_timestamps[index] for index in time_indices]
     if not timestamps:
         timestamps = [None]
-    packed_values = np.asarray(
-        field_values[time_indices][:, valid_grid, :],
-        dtype="<f4",
-    ).tobytes(order="C")
+    chunk_directory = output_file.parent / (output_file.stem + "-chunks")
+    chunk_directory.mkdir(parents=True, exist_ok=True)
+    chunk_size = DEFAULT_DASHBOARD_CHUNK_SIZE
+    chunk_descriptors = []
+    for chunk_number, chunk_start in enumerate(range(0, len(time_indices), chunk_size)):
+        chunk_indices = time_indices[chunk_start:chunk_start + chunk_size]
+        packed_values = np.asarray(
+            field_values[chunk_indices][:, valid_grid, :],
+            dtype="<f4",
+        ).tobytes(order="C")
+        chunk_file = chunk_directory / f"chunk-{chunk_number:04d}.js"
+        chunk_payload = (
+            "window.GHANA_GEOSTROPHIC_CHUNKS=window.GHANA_GEOSTROPHIC_CHUNKS||{};"
+            f"window.GHANA_GEOSTROPHIC_CHUNKS[{chunk_number}]="
+            + json.dumps(base64.b64encode(packed_values).decode("ascii"))
+            + ";\n"
+        )
+        _atomic_write_text(chunk_file, chunk_payload)
+        chunk_descriptors.append(
+            {
+                "start": chunk_start,
+                "end": chunk_start + len(chunk_indices) - 1,
+                "file": f"{chunk_directory.name}/{chunk_file.name}",
+            }
+        )
     snapshot = {
         "date": timestamps[-1],
         "source_time_steps": int(field_values.shape[0]),
@@ -181,7 +205,8 @@ def _write_dashboard_snapshot(
         "time_series": {
             "dates": timestamps,
             "encoding": "base64-little-endian-float32-eastward-northward-speed",
-            "values": base64.b64encode(packed_values).decode("ascii"),
+            "chunk_size": chunk_size,
+            "chunks": chunk_descriptors,
         },
     }
     encoded = json.dumps(snapshot, separators=(",", ":"), allow_nan=False)

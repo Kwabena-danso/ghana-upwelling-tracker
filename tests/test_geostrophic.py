@@ -54,7 +54,7 @@ class GeostrophicVelocityTests(unittest.TestCase):
         )
         dataset.to_netcdf(path, engine="h5netcdf")
 
-    def test_derives_surface_velocities_masks_weak_coriolis_and_writes_dashboard_snapshot(self):
+    def test_derives_surface_velocities_for_all_latitudes_and_writes_dashboard_snapshot(self):
         import numpy as np
         import xarray as xr
 
@@ -83,8 +83,8 @@ class GeostrophicVelocityTests(unittest.TestCase):
             raw_file_unchanged = raw_file.read_bytes() == original_bytes
 
         coriolis_at_five = 2 * 7.292115e-5 * np.sin(np.deg2rad(5.0))
-        self.assertTrue(np.isnan(eastward[:, :2, :]).all())
-        self.assertTrue(np.isnan(northward[:, :2, :]).all())
+        self.assertTrue(np.isfinite(eastward[:, :2, :]).all())
+        self.assertTrue(np.isfinite(northward[:, :2, :]).all())
         self.assertAlmostEqual(eastward[0, 2, 1], -9.80665 * 5e-7 / coriolis_at_five, places=6)
         self.assertAlmostEqual(northward[0, 2, 1], 9.80665 * 1e-6 / coriolis_at_five, places=6)
         self.assertAlmostEqual(
@@ -105,15 +105,15 @@ class GeostrophicVelocityTests(unittest.TestCase):
         dashboard_data = json.loads(match.group(1))
         self.assertEqual(dashboard_data["date"], "2024-01-02")
         self.assertEqual(dashboard_data["minimum_coriolis_s-1"], DEFAULT_MINIMUM_CORIOLIS)
-        self.assertEqual(len(dashboard_data["cells"]), 8)
-        self.assertEqual(len(dashboard_data["vectors"]), 2)
-        self.assertEqual(dashboard_data["cells"][4]["bounds"], [6.0, -5.0, 8.0, -3.0])
+        self.assertEqual(len(dashboard_data["cells"]), 16)
+        self.assertEqual(len(dashboard_data["vectors"]), 4)
+        self.assertEqual(dashboard_data["cells"][4]["bounds"], [2.0, -5.0, 4.0, -3.0])
         self.assertEqual(dashboard_data["time_series"]["dates"], ["2024-01-01", "2024-01-02"])
         frame_values = struct.unpack(
-            "<48f",
+            "<96f",
             base64.b64decode(dashboard_data["time_series"]["values"]),
         )
-        self.assertAlmostEqual(frame_values[24], frame_values[0] * 2, places=6)
+        self.assertAlmostEqual(frame_values[48], frame_values[0] * 2, places=6)
 
     def test_rejects_unknown_units_and_preserves_raw_file(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -132,19 +132,22 @@ class GeostrophicVelocityTests(unittest.TestCase):
 
         self.assertTrue(raw_file_unchanged)
 
-    def test_rejects_non_positive_coriolis_threshold(self):
+    def test_explicit_coriolis_threshold_masks_weak_values(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             raw_file = root / "sea_surface_height.nc"
             self._write_ssh_file(raw_file)
 
-            with self.assertRaisesRegex(ValueError, "must be a positive"):
-                derive_geostrophic_velocity(
-                    raw_file,
-                    root / "derived.nc",
-                    dashboard_file=None,
-                    minimum_absolute_coriolis=0,
-                )
+            derive_geostrophic_velocity(
+                raw_file,
+                root / "derived.nc",
+                dashboard_file=None,
+                minimum_absolute_coriolis=1e-5,
+            )
+
+            import xarray as xr
+            with xr.open_dataset(root / "derived.nc") as result:
+                self.assertTrue(result["geostrophic_speed"].isel(latitude=slice(0, 2)).isnull().all())
 
 
 if __name__ == "__main__":

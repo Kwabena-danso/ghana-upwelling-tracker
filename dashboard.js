@@ -874,9 +874,14 @@
                 ? "linear-gradient(90deg, #fff7bc, #fec44f, #fe9929, #ec7014, #cc4c02)"
                 : "linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026)";
         }
+        const sourceTimeSteps = Number(geostrophicData.source_time_steps);
+        const publishedTimeSteps = Number(geostrophicData.published_time_steps);
+        const timeCoverage = Number.isFinite(sourceTimeSteps) && Number.isFinite(publishedTimeSteps)
+            ? " · " + publishedTimeSteps + "/" + sourceTimeSteps + " source dates published"
+            : "";
         document.getElementById("geostrophic-status").textContent =
             "Copernicus " + currentGeostrophicDate + " · " + geostrophicRecords.length +
-            " grid cells · SSH-derived surface geostrophic velocities · " +
+            " grid cells · SSH-derived surface geostrophic velocities" + timeCoverage + " · " +
             (Number(geostrophicData["minimum_coriolis_s-1"]) === 0
                 ? "full dataset; no Coriolis mask applied."
                 : "|f| < " + Number(geostrophicData["minimum_coriolis_s-1"]).toExponential(1) + " s⁻¹ masked.");

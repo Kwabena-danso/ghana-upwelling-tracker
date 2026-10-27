@@ -120,7 +120,6 @@
     let geostrophicRasterMinimum = 0;
     let geostrophicRasterMaximum = 1;
     let geostrophicRasterPalette = [];
-
     function decodeGeostrophicValues(encoded) {
         const binary = window.atob(encoded);
         const bytes = new Uint8Array(binary.length);
@@ -937,9 +936,7 @@
         const rasterVisible = document.getElementById("raster-toggle").checked;
         const pointsVisible = document.getElementById("points-toggle").checked;
         const geostrophicToggle = document.getElementById("geostrophic-toggle");
-        const hasGeostrophicVectors = Boolean(
-            geostrophicData && Array.isArray(geostrophicData.vectors) && geostrophicData.vectors.length
-        );
+        const hasGeostrophicVectors = Boolean(geostrophicData && geostrophicCells.length);
         geostrophicToggle.disabled = !hasGeostrophicVectors || !window.L;
         if (hasGeostrophicVectors && geostrophicToggle.checked && isGeostrophicVariable(selectedVariable) &&
             renderGeostrophicLeaflet()) return;

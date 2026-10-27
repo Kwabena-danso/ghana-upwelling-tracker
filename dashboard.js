@@ -194,7 +194,8 @@
             let eastward = cell.eastward;
             let northward = cell.northward;
             let speed = cell.speed;
-            if (geostrophicValues && frameIndices && frameIndices.length) {
+            if (frameIndices && frameIndices.length &&
+                (geostrophicValues || geostrophicTimeSeries && geostrophicTimeSeries.chunks)) {
                 let eastwardTotal = 0;
                 let northwardTotal = 0;
                 let speedTotal = 0;

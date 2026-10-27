@@ -14,6 +14,7 @@ Coastal upwelling along the Northern Gulf of Guinea (specifically the Côte d'Iv
   <em>Figure 2: Map of the study area along Ghana's Exclusive Economic Zone (EEZ) showing data collection nodes.</em>
 </p>
 
+---
 ### 🔬 Planned Scientific Methods
 Potential future analyses include:
 *   **💨 CUTI (Coastal Upwelling Transport Index):** Quantifies the net vertical mass transport of water into the surface mixed layer, assessing the physical strength of the upwelling signal.

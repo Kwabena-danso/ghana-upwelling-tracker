@@ -8,12 +8,6 @@ An oceanographic tracking and data analysis project being developed to monitor c
 
 Coastal upwelling along the Northern Gulf of Guinea (specifically the Côte d'Ivoire-Ghana upwelling system) is a critical marine phenomenon. It regulates regional climate, drives primary biological productivity, and sustains local artisanal and industrial fisheries.
 
-<p align="center">
-  <img src="images/Screenshot 2026-04-27 235124.png" alt="Ghana EEZ Study Area Map" width="550"/>
-  <br>
-  <em>Figure 2: Map of the study area along Ghana's Exclusive Economic Zone (EEZ) showing data collection nodes.</em>
-</p>
-
 ---
 ### 🔬 Planned Scientific Methods
 Potential future analyses include:
@@ -24,15 +18,13 @@ Potential future analyses include:
 ---
 
 ## 🗺️ Study Area: Ghana's EEZ
+The study focus entirely on Ghana's Exclusive Economic Zone
 
-The tracking focusing on key coastal nodes where upwelling intensity historically peaks due to orientation of the coastline and bathymetry:
-1.  **📍 Cape Three Points (Western Region):** The primary topographic upwelling center.
-2.  **📍 Takoradi & Accra Coastal Strips:** Areas heavily influenced by remote forcing and localized wind-stress curl.
 
 <p align="center">
-  <img src="https://researchgate.net" alt="Gulf of Guinea SST Map" width="550"/>
+  <img src="images/Screenshot 2026-04-27 235124.png" alt="Ghana EEZ Study Area Map" width="550"/>
   <br>
-  <em>Figure 2: Historical Sea Surface Temperature (SST) footprint detailing the distinct cold-water upwelling plumes across Côte d'Ivoire and Ghana.</em>
+  <em>Figure 2: Map of the study area along Ghana's Exclusive Economic Zone (EEZ) showing data collection nodes.</em>
 </p>
 
 ---

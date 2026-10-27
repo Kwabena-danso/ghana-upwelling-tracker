@@ -1,6 +1,6 @@
 # 🌊 Ghana Upwelling Tracker 🇬🇭
 
-An oceanographic tracking and data analysis project being developed to monitor coastal upwelling dynamics along **Ghana's Exclusive Economic Zone (EEZ)** in the Gulf of Guinea. The current pipeline downloads configured Copernicus Marine datasets and performs structural metadata checks; it does not yet calculate upwelling indices.
+An oceanographic tracking and data analysis project being developed to monitor coastal upwelling dynamics along **Ghana's Exclusive Economic Zone (EEZ)** in the Gulf of Guinea. The current pipeline downloads configured Copernicus Marine datasets and performs structural metadata checks as well as calculate upwelling indices.
 
 ---
 
@@ -19,7 +19,6 @@ Potential future analyses include:
 *   **💨 CUTI (Coastal Upwelling Transport Index):** Quantifies the net vertical mass transport of water into the surface mixed layer, assessing the physical strength of the upwelling signal.
 *   **🐟 BEAUTI (Biologically Effective Upwelling Transport Index):** Factors in the nutrient concentration of the source water to calculate the actual nitrate/biological flux reaching the euphotic zone.
 
-These calculations are not implemented. Their input variables, units, spatial domains, and scientific formulas must be verified before they are added to the processing pipeline.
 
 ---
 
@@ -121,4 +120,4 @@ On desktop, the map remains fixed in the main workspace while the exploration pa
 
 Contributions, feedback, and collaboration from physical oceanographers, marine biologists, and data scientists are welcome! Please open an issue or submit a pull request. 
 
-🔬 **Researcher:** [Kwabena Danso]
+**Researcher:** Kwabena Danso

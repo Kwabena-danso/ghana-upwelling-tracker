@@ -1,8 +1,61 @@
 (function () {
     "use strict";
 
+    function validateGeostrophicProduct(candidate) {
+        if (!candidate || typeof candidate !== "object") {
+            return { data: null, reason: "No generated Copernicus velocity product loaded." };
+        }
+        const cells = Array.isArray(candidate.cells)
+            ? candidate.cells
+            : Array.isArray(candidate.vectors) ? candidate.vectors : [];
+        const vectors = candidate.vectors;
+        if (!cells.length || (vectors !== undefined && !Array.isArray(vectors))) {
+            return { data: null, reason: "The generated Copernicus velocity product has no usable grid cells." };
+        }
+        if (!cells.every(function (cell) {
+            return cell && Number.isFinite(cell.latitude) && Number.isFinite(cell.longitude);
+        })) {
+            return { data: null, reason: "The generated Copernicus velocity product has invalid coordinates." };
+        }
+        if (!candidate.time_series && (!Array.isArray(vectors) || !vectors.length ||
+            !cells.every(function (cell) {
+                return Number.isFinite(cell.eastward) &&
+                    Number.isFinite(cell.northward) &&
+                    Number.isFinite(cell.speed);
+            }))) {
+            return { data: null, reason: "The generated Copernicus velocity product has no usable values." };
+        }
+        const minimumCoriolis = Number(candidate["minimum_coriolis_s-1"]);
+        if (!Number.isFinite(minimumCoriolis) || minimumCoriolis < 0) {
+            return { data: null, reason: "The generated Copernicus velocity product is missing its mask metadata." };
+        }
+        if (typeof candidate.method !== "string" ||
+            candidate.method.toLowerCase().indexOf("ssh") === -1 ||
+            typeof candidate.interpretation !== "string") {
+            return { data: null, reason: "The generated Copernicus velocity product is missing provenance metadata." };
+        }
+        if (candidate.time_series) {
+            const timeSeries = candidate.time_series;
+            if (!Array.isArray(timeSeries.dates) || !timeSeries.dates.length ||
+                typeof timeSeries.values !== "string") {
+                return { data: null, reason: "The generated Copernicus time series is incomplete." };
+            }
+            try {
+                const values = decodeGeostrophicValues(timeSeries.values);
+                if (values.length !== timeSeries.dates.length * cells.length * 3) {
+                    return { data: null, reason: "The generated Copernicus time series does not match its grid." };
+                }
+            } catch (error) {
+                return { data: null, reason: "The generated Copernicus time series could not be decoded." };
+            }
+        }
+        return { data: candidate, reason: "Copernicus velocity product ready." };
+    }
+
     const demo = window.GHANA_UPWELLING_DEMO;
-    const geostrophicData = window.GHANA_GEOSTROPHIC_VELOCITY || null;
+    const geostrophicProduct = validateGeostrophicProduct(window.GHANA_GEOSTROPHIC_VELOCITY);
+    const geostrophicData = geostrophicProduct.data;
+    const geostrophicLoadStatus = geostrophicProduct.reason;
     const communityOptions = document.getElementById("community-options");
     const communityPickerLabel = document.getElementById("community-picker-label");
     const startInput = document.getElementById("start-date");
@@ -823,8 +876,10 @@
         }
         document.getElementById("geostrophic-status").textContent =
             "Copernicus " + currentGeostrophicDate + " · " + geostrophicRecords.length +
-            " grid cells · SSH-derived surface velocities · |f| < " +
-            Number(geostrophicData["minimum_coriolis_s-1"]).toExponential(1) + " s⁻¹ masked.";
+            " grid cells · SSH-derived surface geostrophic velocities · " +
+            (Number(geostrophicData["minimum_coriolis_s-1"]) === 0
+                ? "full dataset; no Coriolis mask applied."
+                : "|f| < " + Number(geostrophicData["minimum_coriolis_s-1"]).toExponential(1) + " s⁻¹ masked.");
         return true;
     }
 
@@ -877,7 +932,9 @@
         const rasterVisible = document.getElementById("raster-toggle").checked;
         const pointsVisible = document.getElementById("points-toggle").checked;
         const geostrophicToggle = document.getElementById("geostrophic-toggle");
-        const hasGeostrophicVectors = Boolean(geostrophicData && geostrophicData.vectors.length);
+        const hasGeostrophicVectors = Boolean(
+            geostrophicData && Array.isArray(geostrophicData.vectors) && geostrophicData.vectors.length
+        );
         geostrophicToggle.disabled = !hasGeostrophicVectors || !window.L;
         if (hasGeostrophicVectors && geostrophicToggle.checked && isGeostrophicVariable(selectedVariable) &&
             renderGeostrophicLeaflet()) return;
@@ -972,7 +1029,7 @@
         document.getElementById("geostrophic-status").textContent = hasGeostrophicVectors
             ? window.L ? "Copernicus currents ready · enable the map layer to explore."
                 : "Copernicus data found; Leaflet could not be loaded."
-            : "No processed Copernicus sea-surface-height snapshot loaded.";
+            : geostrophicLoadStatus;
         map.innerHTML = '<rect x="0" y="0" width="700" height="500" fill="#edf6f6"></rect>' +
             (rasterVisible ? '<g class="raster-layer" aria-label="Synthetic demo raster covering the displayed coordinate extent">' + raster.join("") + '</g>' : "") +
             '<g class="map-grid">' + horizontalLines + verticalLines + '</g>' +

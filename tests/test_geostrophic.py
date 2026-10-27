@@ -93,6 +93,7 @@ class GeostrophicVelocityTests(unittest.TestCase):
             places=6,
         )
         self.assertIn("not a CUTI or BEUTI", attrs["interpretation"])
+        self.assertIn("No equatorial masking", attrs["equatorial_mask"])
         self.assertEqual(summary["time_steps"], 2)
         self.assertTrue(raw_file_unchanged)
 

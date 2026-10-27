@@ -709,7 +709,9 @@
         geostrophicRasterLayer.setOpacity(rasterVisible ? 1 : 0);
         geostrophicRasterLayer.redraw();
 
-        const arrowStride = geostrophicData.arrow_stride || 8;
+        const arrowStride = geostrophicTimeSeries
+            ? Math.min(3, geostrophicData.arrow_stride || 3)
+            : geostrophicData.arrow_stride || 8;
         const arrowRecords = geostrophicTimeSeries
             ? geostrophicRecords.filter(function (record) {
                 return record.row % arrowStride === 0 && record.column % arrowStride === 0;
@@ -717,24 +719,33 @@
             : geostrophicData.vectors.map(function (vector) {
                 return geostrophicRecordByCoordinate.get(vector.latitude + "|" + vector.longitude);
             }).filter(Boolean);
+        const maximumArrowSpeed = Math.max.apply(null, geostrophicRecords.map(function (record) {
+            return record.speed;
+        })) || 1;
         arrowRecords.forEach(function (record) {
-            const direction = Math.atan2(record.eastward, record.northward) * 180 / Math.PI;
+            const direction = selectedVariable === "eastward"
+                ? record.eastward >= 0 ? 90 : -90
+                : selectedVariable === "northward"
+                    ? record.northward >= 0 ? 0 : 180
+                    : Math.atan2(record.eastward, record.northward) * 180 / Math.PI;
+            const arrowLength = 24 * record.speed / maximumArrowSpeed;
             const icon = window.L.divIcon({
                 className: "leaflet-current-icon",
-                iconSize: [16, 16],
-                iconAnchor: [8, 8],
+                iconSize: [28, 28],
+                iconAnchor: [14, 14],
                 html: '<span class="leaflet-current-arrow" style="--arrow-direction:' +
-                    direction.toFixed(1) + 'deg">' +
-                    '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-                    '<path class="leaflet-arrow-halo" d="M12 20V5M6.5 10.5 12 5l5.5 5.5"></path>' +
-                    '<path class="leaflet-arrow-shaft" d="M12 20V5M6.5 10.5 12 5l5.5 5.5"></path>' +
+                    direction.toFixed(1) + 'deg;--arrow-length:' + arrowLength.toFixed(1) + 'px">' +
+                    '<svg viewBox="0 0 12 24" aria-hidden="true">' +
+                    '<path class="leaflet-arrow-halo" d="M6 23V2M3 5l3-3 3 3"></path>' +
+                    '<path class="leaflet-arrow-shaft" d="M6 23V2M3 5l3-3 3 3"></path>' +
                     '</svg></span>'
             });
             const marker = window.L.marker([record.latitude, record.longitude], {
                 icon: icon,
                 keyboard: true,
                 interactive: !drawingMode,
-                title: "Geostrophic speed " + record.speed.toFixed(3) + " m/s"
+                title: geostrophicVariableLabels[selectedVariable] + " · " +
+                    record[selectedVariable].toFixed(3) + " m/s"
             });
             marker.on("click", function () {
                 selectGeostrophicRecord(record);
@@ -801,7 +812,11 @@
                 "<strong>" + geostrophicVariableLabels[selectedVariable] + " · m s⁻¹</strong>" +
                 '<div class="leaflet-speed-gradient" aria-hidden="true"></div>' +
                 '<div class="leaflet-speed-labels"><span>' + minimumLabel + '</span><span>' + maximumLabel + '</span></div>' +
-                "<div>Arrows show current direction</div>";
+                "<div>" + (selectedVariable === "eastward"
+                    ? "Arrows show east/west component"
+                    : selectedVariable === "northward"
+                        ? "Arrows show north/south component"
+                        : "Arrows show current direction") + "</div>";
             legend.querySelector(".leaflet-speed-gradient").style.background = selectedVariable === "speed"
                 ? "linear-gradient(90deg, #fff7bc, #fec44f, #fe9929, #ec7014, #cc4c02)"
                 : "linear-gradient(90deg, #313695, #74add1, #ffffbf, #f46d43, #a50026)";

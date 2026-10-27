@@ -15,7 +15,8 @@ from .quality import COORDINATE_NAMES
 GRAVITY = 9.80665
 EARTH_ROTATION_RATE = 7.292115e-5
 EARTH_RADIUS_METERS = 6_371_000.0
-DEFAULT_MINIMUM_CORIOLIS = 1e-5
+# Zero means retain the complete SSH-derived field, including near-equatorial cells.
+DEFAULT_MINIMUM_CORIOLIS = 0.0
 DEFAULT_INPUT_FILE = Path("data") / "raw" / "sea_surface_height.nc"
 DEFAULT_OUTPUT_FILE = Path("data") / "processed" / "geostrophic_velocity.nc"
 DEFAULT_DASHBOARD_FILE = Path("data") / "processed" / "geostrophic_velocity.js"
@@ -124,7 +125,8 @@ def _write_dashboard_snapshot(dataset: Any, output_file: Path, stride: int) -> N
         "citation": "Jacox et al. (2018), https://doi.org/10.1029/2018JC014187",
         "interpretation": (
             "SSH-gradient velocity adaptation; not a CUTI or BEUTI calculation. "
-            "Values where |f| is below the configured threshold are masked."
+            "Near-equatorial values are retained unless an explicit Coriolis threshold "
+            "is supplied."
         ),
         "minimum_coriolis_s-1": dataset.attrs["minimum_absolute_coriolis_parameter_s-1"],
         "latitude_extent": [
@@ -181,8 +183,8 @@ def derive_geostrophic_velocity(
     import numpy as np
     import xarray as xr
 
-    if not math.isfinite(minimum_absolute_coriolis) or minimum_absolute_coriolis <= 0:
-        raise ValueError("--minimum-absolute-coriolis must be a positive finite value.")
+    if not math.isfinite(minimum_absolute_coriolis) or minimum_absolute_coriolis < 0:
+        raise ValueError("--minimum-absolute-coriolis must be a non-negative finite value.")
     if dashboard_stride < 1:
         raise ValueError("--dashboard-stride must be at least 1.")
     if not input_file.is_file():
@@ -207,8 +209,16 @@ def derive_geostrophic_velocity(
         longitude_name = _coordinate_name(source, "longitude")
         if latitude_name not in sea_level.dims or longitude_name not in sea_level.dims:
             raise ValueError("'zos' must have both latitude and longitude dimensions.")
-        if sea_level.dims[-2:] != (latitude_name, longitude_name):
-            raise ValueError("'zos' dimensions must end in latitude, longitude order.")
+        non_spatial_dims = [
+            dimension
+            for dimension in sea_level.dims
+            if dimension not in {latitude_name, longitude_name}
+        ]
+        if len(non_spatial_dims) > 1:
+            raise ValueError("'zos' may contain at most one non-spatial dimension (time).")
+        sea_level = sea_level.transpose(
+            *(non_spatial_dims + [latitude_name, longitude_name])
+        )
 
         latitude_values = source[latitude_name].values
         longitude_values = source[longitude_name].values
@@ -223,7 +233,10 @@ def derive_geostrophic_velocity(
         dy_per_degree = EARTH_RADIUS_METERS * (np.pi / 180)
         d_eta_d_latitude = sea_level.differentiate(latitude_name, edge_order=2) / dy_per_degree
         d_eta_d_longitude = sea_level.differentiate(longitude_name, edge_order=2) / dx_per_degree
-        valid_coriolis = abs(coriolis) >= minimum_absolute_coriolis
+        if minimum_absolute_coriolis:
+            valid_coriolis = abs(coriolis) >= minimum_absolute_coriolis
+        else:
+            valid_coriolis = xr.ones_like(coriolis, dtype=bool)
 
         eastward = (-GRAVITY * d_eta_d_latitude / coriolis).where(valid_coriolis)
         northward = (GRAVITY * d_eta_d_longitude / coriolis).where(valid_coriolis)
@@ -263,9 +276,14 @@ def derive_geostrophic_velocity(
                 "longitude_coordinate": longitude_name,
                 "minimum_absolute_coriolis_parameter_s-1": float(minimum_absolute_coriolis),
                 "equatorial_mask": (
-                    "Grid points with |f| < minimum_absolute_coriolis are NaN; "
-                    "this removes latitudes where the standard geostrophic balance "
-                    "is ill-conditioned."
+                    "No equatorial masking applied; all finite SSH-derived values are "
+                    "retained."
+                    if not minimum_absolute_coriolis
+                    else (
+                        "Grid points with |f| < minimum_absolute_coriolis are NaN; "
+                        "this removes latitudes where the standard geostrophic balance "
+                        "is ill-conditioned."
+                    )
                 ),
                 "earth_radius_m": EARTH_RADIUS_METERS,
                 "gravity_m_s-2": GRAVITY,
@@ -347,8 +365,8 @@ def build_parser() -> argparse.ArgumentParser:
         type=float,
         default=DEFAULT_MINIMUM_CORIOLIS,
         help=(
-            "Mask grid cells where |f| is below this value in s^-1 "
-            f"(default: {DEFAULT_MINIMUM_CORIOLIS:g})."
+            "Mask grid cells where |f| is below this value in s^-1; use 0 to retain "
+            f"all cells (default: {DEFAULT_MINIMUM_CORIOLIS:g})."
         ),
     )
     parser.add_argument(
@@ -373,9 +391,15 @@ def main(argv: Sequence[str] | None = None) -> int:
     except (OSError, RuntimeError, ValueError) as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1
+    threshold = summary["minimum_absolute_coriolis_s-1"]
+    coriolis_message = (
+        "retained all Coriolis values."
+        if threshold == 0
+        else f"masked |f| < {threshold:g} s^-1."
+    )
     print(
         f"Derived {summary['method']} across {summary['time_steps']} time steps; "
-        f"masked |f| < {summary['minimum_absolute_coriolis_s-1']:g} s^-1. "
+        f"{coriolis_message} "
         f"Saved {summary['output']} and dashboard snapshot {summary['dashboard_output']}."
     )
     return 0

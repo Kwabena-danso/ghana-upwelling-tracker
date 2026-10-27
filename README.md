@@ -121,5 +121,4 @@ On desktop, the map remains fixed in the main workspace while the exploration pa
 
 Contributions, feedback, and collaboration from physical oceanographers, marine biologists, and data scientists are welcome! Please open an issue or submit a pull request. 
 
-🔬 **Author/Researcher:** [Your Name/GitHub Handle]
-🇬🇭 **Focus Region:** Gulf of Guinea (Ecosystem Sub-division 34)
+🔬 **Researcher:** [Kwabena Danso]

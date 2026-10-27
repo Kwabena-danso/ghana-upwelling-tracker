@@ -24,11 +24,19 @@ from ghana_upwelling.geostrophic import (
     "xarray and dask are required for geostrophic processing tests",
 )
 class GeostrophicVelocityTests(unittest.TestCase):
-    def _write_ssh_file(self, path: Path, units: str = "m") -> None:
+    def _write_ssh_file(
+        self,
+        path: Path,
+        units: str = "m",
+        latitudes=None,
+    ) -> None:
         import numpy as np
         import xarray as xr
 
-        latitudes = np.array([1.0, 3.0, 5.0, 7.0])
+        if latitudes is None:
+            latitudes = np.array([1.0, 3.0, 5.0, 7.0])
+        else:
+            latitudes = np.asarray(latitudes, dtype=float)
         longitudes = np.array([-4.0, -2.0, 0.0, 2.0])
         x_meters = (
             6_371_000.0
@@ -149,6 +157,30 @@ class GeostrophicVelocityTests(unittest.TestCase):
             import xarray as xr
             with xr.open_dataset(root / "derived.nc") as result:
                 self.assertTrue(result["geostrophic_speed"].isel(latitude=slice(0, 2)).isnull().all())
+
+    def test_default_configuration_retains_near_equatorial_cells(self):
+        import numpy as np
+        import xarray as xr
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            raw_file = root / "sea_surface_height.nc"
+            self._write_ssh_file(raw_file, latitudes=[0.1, 1.1, 2.1, 3.1])
+
+            derive_geostrophic_velocity(
+                raw_file,
+                root / "derived.nc",
+                dashboard_file=None,
+            )
+
+            with xr.open_dataset(root / "derived.nc") as result:
+                equatorial_eastward = result["eastward_geostrophic_velocity"].isel(latitude=0).values
+                equatorial_northward = result["northward_geostrophic_velocity"].isel(latitude=0).values
+                minimum_coriolis = result.attrs["minimum_absolute_coriolis_parameter_s-1"]
+
+        self.assertEqual(minimum_coriolis, DEFAULT_MINIMUM_CORIOLIS)
+        self.assertTrue(np.isfinite(equatorial_eastward).all())
+        self.assertTrue(np.isfinite(equatorial_northward).all())
 
 
 if __name__ == "__main__":

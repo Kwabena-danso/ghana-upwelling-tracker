@@ -121,16 +121,6 @@
     let geostrophicRasterMaximum = 1;
     let geostrophicRasterPalette = [];
 
-    let geostrophicParticleCanvas = null;
-    let geostrophicParticleContext = null;
-    let geostrophicParticles = [];
-    let geostrophicAnimationFrame = null;
-    let geostrophicAnimationLastTime = 0;
-    let geostrophicAnimationRunning = false;
-    const geostrophicReducedMotion = window.matchMedia &&
-        window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const geostrophicParticleLimit = 360;
-
     function decodeGeostrophicValues(encoded) {
         const binary = window.atob(encoded);
         const bytes = new Uint8Array(binary.length);
@@ -649,128 +639,6 @@
         } : null;
     }
 
-    function geostrophicAnimationBounds() {
-        return {
-            minLatitude: geostrophicLatitudes[0],
-            maxLatitude: geostrophicLatitudes[geostrophicLatitudes.length - 1],
-            minLongitude: geostrophicLongitudes[0],
-            maxLongitude: geostrophicLongitudes[geostrophicLongitudes.length - 1]
-        };
-    }
-
-    function randomGeostrophicParticle() {
-        const bounds = geostrophicAnimationBounds();
-        return {
-            latitude: bounds.minLatitude + Math.random() * (bounds.maxLatitude - bounds.minLatitude),
-            longitude: bounds.minLongitude + Math.random() * (bounds.maxLongitude - bounds.minLongitude),
-            age: Math.random() * 2600
-        };
-    }
-
-    function resizeGeostrophicParticleCanvas() {
-        if (!geostrophicParticleCanvas || !geostrophicLeafletMap) return;
-        const size = geostrophicLeafletMap.getSize();
-        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
-        geostrophicParticleCanvas.width = Math.max(1, Math.round(size.x * pixelRatio));
-        geostrophicParticleCanvas.height = Math.max(1, Math.round(size.y * pixelRatio));
-        geostrophicParticleContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-    }
-
-    function drawGeostrophicParticles() {
-        if (!geostrophicParticleContext || !geostrophicLeafletMap) return;
-        const size = geostrophicLeafletMap.getSize();
-        geostrophicParticleContext.fillStyle = "rgba(255, 255, 255, 0.16)";
-        geostrophicParticleContext.fillRect(0, 0, size.x, size.y);
-        geostrophicParticleContext.strokeStyle = "rgba(19, 45, 62, 0.62)";
-        geostrophicParticleContext.lineWidth = 1;
-        geostrophicParticles.forEach(function (particle) {
-            const point = geostrophicLeafletMap.latLngToContainerPoint([particle.latitude, particle.longitude]);
-            if (point.x < -4 || point.x > size.x + 4 || point.y < -4 || point.y > size.y + 4) return;
-            geostrophicParticleContext.beginPath();
-            geostrophicParticleContext.arc(point.x, point.y, 1.4, 0, Math.PI * 2);
-            geostrophicParticleContext.stroke();
-        });
-    }
-
-    function stopGeostrophicAnimation(removeCanvas) {
-        if (geostrophicAnimationFrame !== null) {
-            window.cancelAnimationFrame(geostrophicAnimationFrame);
-            geostrophicAnimationFrame = null;
-        }
-        geostrophicAnimationRunning = false;
-        geostrophicAnimationLastTime = 0;
-        if (removeCanvas && geostrophicParticleCanvas) {
-            geostrophicParticleCanvas.remove();
-            geostrophicParticleCanvas = null;
-            geostrophicParticleContext = null;
-            geostrophicParticles = [];
-        }
-        const button = document.getElementById("geostrophic-animation-toggle");
-        button.hidden = true;
-    }
-
-    function animateGeostrophicParticles(timestamp) {
-        if (!geostrophicAnimationRunning || !geostrophicParticleCanvas) return;
-        const elapsed = Math.min(80, geostrophicAnimationLastTime ? timestamp - geostrophicAnimationLastTime : 16);
-        geostrophicAnimationLastTime = timestamp;
-        const bounds = geostrophicAnimationBounds();
-        geostrophicParticles.forEach(function (particle, index) {
-            const vector = sampleGeostrophicVector(particle.latitude, particle.longitude);
-            particle.age += elapsed;
-            if (!vector || particle.age > 2800) {
-                geostrophicParticles[index] = randomGeostrophicParticle();
-                return;
-            }
-            const seconds = elapsed / 1000;
-            particle.longitude += vector.eastward * seconds * 0.00008;
-            particle.latitude += vector.northward * seconds * 0.00008;
-            if (particle.latitude < bounds.minLatitude || particle.latitude > bounds.maxLatitude ||
-                particle.longitude < bounds.minLongitude || particle.longitude > bounds.maxLongitude) {
-                geostrophicParticles[index] = randomGeostrophicParticle();
-            }
-        });
-        drawGeostrophicParticles();
-        geostrophicAnimationFrame = window.requestAnimationFrame(animateGeostrophicParticles);
-    }
-
-    function resetGeostrophicAnimation() {
-        if (!geostrophicParticleCanvas) return;
-        geostrophicParticles = Array.from({ length: geostrophicParticleLimit }, randomGeostrophicParticle);
-        resizeGeostrophicParticleCanvas();
-        geostrophicParticleContext.clearRect(0, 0, geostrophicLeafletMap.getSize().x, geostrophicLeafletMap.getSize().y);
-        if (!geostrophicReducedMotion && geostrophicAnimationRunning) {
-            geostrophicAnimationLastTime = 0;
-        }
-    }
-
-    function startGeostrophicAnimation() {
-        if (geostrophicReducedMotion || geostrophicAnimationRunning || !geostrophicParticleCanvas) return;
-        geostrophicAnimationRunning = true;
-        geostrophicAnimationLastTime = 0;
-        geostrophicAnimationFrame = window.requestAnimationFrame(animateGeostrophicParticles);
-    }
-
-    function setupGeostrophicAnimation() {
-        if (geostrophicReducedMotion || !geostrophicLeafletMap) {
-            stopGeostrophicAnimation(false);
-            return;
-        }
-        if (!geostrophicParticleCanvas) {
-            geostrophicParticleCanvas = document.createElement("canvas");
-            geostrophicParticleCanvas.className = "geostrophic-particle-canvas";
-            document.getElementById("geostrophic-leaflet").appendChild(geostrophicParticleCanvas);
-            geostrophicParticleContext = geostrophicParticleCanvas.getContext("2d");
-        }
-        const button = document.getElementById("geostrophic-animation-toggle");
-        button.hidden = false;
-        button.textContent = "Pause current animation";
-        button.setAttribute("aria-pressed", String(geostrophicAnimationRunning));
-        resetGeostrophicAnimation();
-        startGeostrophicAnimation();
-        button.textContent = geostrophicAnimationRunning ? "Pause current animation" : "Play current animation";
-        button.setAttribute("aria-pressed", String(geostrophicAnimationRunning));
-    }
-
     function createGeostrophicRasterTile(coordinates, done) {
         const tile = document.createElement("canvas");
         const size = this.getTileSize();
@@ -809,10 +677,6 @@
             scrollWheelZoom: true,
             zoomControl: true,
             preferCanvas: true
-        });
-        geostrophicLeafletMap.on("resize move zoom", function () {
-            resizeGeostrophicParticleCanvas();
-            if (!geostrophicAnimationRunning) drawGeostrophicParticles();
         });
         geostrophicLeafletMap.on("click", function (event) {
             const coordinate = { latitude: event.latlng.lat, longitude: event.latlng.lng };
@@ -898,7 +762,6 @@
 
         geostrophicCurrentLayer.clearLayers();
         geostrophicCommunityLayer.clearLayers();
-        setupGeostrophicAnimation();
         renderGeostrophicSelection();
         const values = geostrophicRecords.map(function (record) {
             return record[selectedVariable];
@@ -1107,7 +970,6 @@
         geostrophicToggle.disabled = !hasGeostrophicVectors || !window.L;
         if (hasGeostrophicVectors && geostrophicToggle.checked && isGeostrophicVariable(selectedVariable) &&
             renderGeostrophicLeaflet()) return;
-        stopGeostrophicAnimation(true);
         if (geostrophicLeafletMap) geostrophicLeafletMap.doubleClickZoom.enable();
         mapFrame.classList.remove("is-geostrophic");
         document.getElementById("draw-tools").hidden = false;
@@ -1591,20 +1453,6 @@
         configureDateFilters();
         updateDrawingControls();
         render();
-    });
-    document.getElementById("geostrophic-animation-toggle").addEventListener("click", function (event) {
-        if (geostrophicAnimationRunning) {
-            stopGeostrophicAnimation(false);
-            event.target.hidden = false;
-            event.target.textContent = "Play current animation";
-            event.target.setAttribute("aria-pressed", "false");
-            if (geostrophicParticleContext) drawGeostrophicParticles();
-        } else {
-            event.target.hidden = false;
-            event.target.textContent = "Pause current animation";
-            event.target.setAttribute("aria-pressed", "true");
-            startGeostrophicAnimation();
-        }
     });
     document.getElementById("zoom-in").addEventListener("click", function () { zoomMap(1.4); });
     document.getElementById("zoom-out").addEventListener("click", function () { zoomMap(1 / 1.4); });

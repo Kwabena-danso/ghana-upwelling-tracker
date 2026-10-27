@@ -74,7 +74,10 @@
         ? decodeGeostrophicValues(geostrophicTimeSeries.values)
         : null;
     let currentGeostrophicDate = geostrophicData ? geostrophicData.date : null;
-    let geostrophicRecords = makeGeostrophicRecords(currentGeostrophicDate);
+    let currentGeostrophicFrameKey = "";
+    let geostrophicRecords = makeGeostrophicRecords(currentGeostrophicDate, geostrophicDates.length
+        ? [geostrophicDates.length - 1]
+        : []);
     let geostrophicRecordByCoordinate = new Map(geostrophicRecords.map(function (record) {
         return [record.latitude + "|" + record.longitude, record];
     }));
@@ -130,19 +133,34 @@
         return new Float32Array(bytes.buffer);
     }
 
-    function makeGeostrophicRecords(date) {
+    function makeGeostrophicRecords(date, frameIndices) {
         if (!geostrophicData) return [];
-        const frameIndex = geostrophicDates.indexOf(date);
         const cellCount = geostrophicCells.length;
         return geostrophicCells.map(function (cell, index) {
             let eastward = cell.eastward;
             let northward = cell.northward;
             let speed = cell.speed;
-            if (geostrophicValues && frameIndex >= 0) {
-                const offset = (frameIndex * cellCount + index) * 3;
-                eastward = geostrophicValues[offset];
-                northward = geostrophicValues[offset + 1];
-                speed = geostrophicValues[offset + 2];
+            if (geostrophicValues && frameIndices && frameIndices.length) {
+                let eastwardTotal = 0;
+                let northwardTotal = 0;
+                let speedTotal = 0;
+                let sampleCount = 0;
+                frameIndices.forEach(function (frameIndex) {
+                    const offset = (frameIndex * cellCount + index) * 3;
+                    const frameEastward = geostrophicValues[offset];
+                    const frameNorthward = geostrophicValues[offset + 1];
+                    const frameSpeed = geostrophicValues[offset + 2];
+                    if (![frameEastward, frameNorthward, frameSpeed].every(Number.isFinite)) return;
+                    eastwardTotal += frameEastward;
+                    northwardTotal += frameNorthward;
+                    speedTotal += frameSpeed;
+                    sampleCount += 1;
+                });
+                if (sampleCount) {
+                    eastward = eastwardTotal / sampleCount;
+                    northward = northwardTotal / sampleCount;
+                    speed = speedTotal / sampleCount;
+                }
             }
             if (![eastward, northward, speed].every(Number.isFinite)) return null;
             return {
@@ -195,15 +213,23 @@
 
     function updateGeostrophicFrame() {
         if (!isGeostrophicVariable(selectedVariable) || !geostrophicDates.length) return;
-        const matchingDates = geostrophicDates.filter(function (date) {
-            return date && date <= endInput.value;
+        const matchingFrameIndices = geostrophicDates.map(function (date, index) {
+            return date && date >= startInput.value && date <= endInput.value ? index : -1;
+        }).filter(function (index) {
+            return index >= 0;
         });
-        const date = matchingDates.length ? matchingDates[matchingDates.length - 1] : geostrophicDates[0];
-        if (date === currentGeostrophicDate) return;
+        const fallbackIndex = geostrophicDates.reduce(function (closestIndex, date, index) {
+            return date && date <= endInput.value ? index : closestIndex;
+        }, 0);
+        const frameIndices = matchingFrameIndices.length ? matchingFrameIndices : [fallbackIndex];
+        const date = geostrophicDates[frameIndices[frameIndices.length - 1]];
+        const frameKey = frameIndices.join(",");
+        if (date === currentGeostrophicDate && frameKey === currentGeostrophicFrameKey) return;
 
         const selectedId = selectedGeostrophicRecord ? selectedGeostrophicRecord.id : null;
         currentGeostrophicDate = date;
-        geostrophicRecords = makeGeostrophicRecords(date);
+        currentGeostrophicFrameKey = frameKey;
+        geostrophicRecords = makeGeostrophicRecords(date, frameIndices);
         geostrophicRecordByCoordinate = new Map(geostrophicRecords.map(function (record) {
             return [record.latitude + "|" + record.longitude, record];
         }));
@@ -213,6 +239,7 @@
     }
 
     configureDateFilters();
+    updateGeostrophicFrame();
     const geostrophicMapEnabled = isGeostrophicVariable(selectedVariable) && Boolean(window.L);
     document.getElementById("geostrophic-toggle").checked = geostrophicMapEnabled;
     if (geostrophicMapEnabled) document.getElementById("raster-toggle").checked = true;
@@ -405,7 +432,7 @@
             { label: "Mean " + variableName, value: mean(records, selectedVariable), unit: geostrophic ? geostrophicVariableUnits[selectedVariable] : "demo units", detail: geostrophic ? "Across selected grid cells" : "Across filtered records" },
             { label: "Highest " + variableName + " sample", value: strongest ? strongest[selectedVariable] : null, unit: strongest ? strongest.site : "", detail: strongest ? formatDate(strongest.date) : "No matching records" },
             { label: "Latest sample date", value: latestDate ? formatDate(latestDate) : "—", unit: "", detail: records.length + " records in this view" },
-            { label: geostrophic ? "Grid cells in view" : "Records in view", value: records.length, unit: "", detail: selectedGeostrophicRecord ? selectedGeostrophicRecord.site : selection ? selection.name : geostrophic ? "Map date: " + formatDate(currentGeostrophicDate) : "Across selected communities" }
+            { label: geostrophic ? "Grid cells in view" : "Records in view", value: records.length, unit: "", detail: selectedGeostrophicRecord ? selectedGeostrophicRecord.site : selection ? selection.name : geostrophic ? "Map mean: " + formatDate(startInput.value) + " – " + formatDate(endInput.value) : "Across selected communities" }
         ];
         const container = document.getElementById("metrics");
         container.replaceChildren();
@@ -829,7 +856,7 @@
                 });
                 marker.bindPopup(
                     '<div class="leaflet-current-popup"><strong>Surface geostrophic current</strong><br>' +
-                    "Date: " + currentGeostrophicDate + "<br>" +
+                    "Date range mean: " + startInput.value + " – " + endInput.value + "<br>" +
                     "Speed: " + record.speed.toFixed(3) + " m s⁻¹<br>" +
                     "Eastward: " + record.eastward.toFixed(3) + " m s⁻¹<br>" +
                     "Northward: " + record.northward.toFixed(3) + " m s⁻¹<br>" +
@@ -903,7 +930,7 @@
             ? " · " + publishedTimeSteps + "/" + sourceTimeSteps + " source dates published"
             : "";
         document.getElementById("geostrophic-status").textContent =
-            "Copernicus " + currentGeostrophicDate + " · " + geostrophicRecords.length +
+            "Copernicus mean " + startInput.value + " – " + endInput.value + " · " + geostrophicRecords.length +
             " grid cells · SSH-derived surface geostrophic velocities" + timeCoverage + " · " +
             (Number(geostrophicData["minimum_coriolis_s-1"]) === 0
                 ? "full dataset; no Coriolis mask applied."
@@ -1213,7 +1240,7 @@
             Math.min(visibleRecordCount, rows.length) + " of " + rows.length +
             " matching " + (geostrophic ? "grid cells" : "records") + " for " +
             (geostrophic ? geostrophicVariableLabels[selectedVariable] : selectedVariable.toUpperCase()) +
-            (geostrophic ? " · map shows " + formatDate(currentGeostrophicDate) : ". Exports include all variables.");
+            (geostrophic ? " · map mean " + formatDate(startInput.value) + " – " + formatDate(endInput.value) : ". Exports include all variables.");
         const location = selectedGeostrophicRecord
             ? selectedGeostrophicRecord.site + " · "
             : selection

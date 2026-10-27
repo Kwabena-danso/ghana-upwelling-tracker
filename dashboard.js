@@ -37,13 +37,16 @@
         if (candidate.time_series) {
             const timeSeries = candidate.time_series;
             if (!Array.isArray(timeSeries.dates) || !timeSeries.dates.length ||
-                typeof timeSeries.values !== "string") {
+                (typeof timeSeries.values !== "string" &&
+                    (!Array.isArray(timeSeries.chunks) || !timeSeries.chunks.length))) {
                 return { data: null, reason: "The generated Copernicus time series is incomplete." };
             }
             try {
-                const values = decodeGeostrophicValues(timeSeries.values);
-                if (values.length !== timeSeries.dates.length * cells.length * 3) {
-                    return { data: null, reason: "The generated Copernicus time series does not match its grid." };
+                if (typeof timeSeries.values === "string") {
+                    const values = decodeGeostrophicValues(timeSeries.values);
+                    if (values.length !== timeSeries.dates.length * cells.length * 3) {
+                        return { data: null, reason: "The generated Copernicus time series does not match its grid." };
+                    }
                 }
             } catch (error) {
                 return { data: null, reason: "The generated Copernicus time series could not be decoded." };
@@ -70,9 +73,11 @@
     const geostrophicDates = geostrophicTimeSeries
         ? geostrophicTimeSeries.dates
         : geostrophicData ? [geostrophicData.date] : [];
-    const geostrophicValues = geostrophicTimeSeries
+    let geostrophicValues = geostrophicTimeSeries && typeof geostrophicTimeSeries.values === "string"
         ? decodeGeostrophicValues(geostrophicTimeSeries.values)
         : null;
+    const geostrophicChunkValues = new Map();
+    const geostrophicChunkLoads = new Map();
     let currentGeostrophicDate = geostrophicData ? geostrophicData.date : null;
     let currentGeostrophicFrameKey = "";
     let geostrophicRecords = makeGeostrophicRecords(currentGeostrophicDate, geostrophicDates.length
@@ -133,6 +138,55 @@
         return new Float32Array(bytes.buffer);
     }
 
+    function loadGeostrophicChunk(chunkIndex) {
+        if (geostrophicValues || geostrophicChunkValues.has(chunkIndex)) {
+            return Promise.resolve();
+        }
+        if (geostrophicChunkLoads.has(chunkIndex)) return geostrophicChunkLoads.get(chunkIndex);
+        const descriptor = geostrophicTimeSeries.chunks[chunkIndex];
+        const promise = new Promise(function (resolve, reject) {
+            const script = document.createElement("script");
+            script.src = new URL("data/processed/" + descriptor.file, document.baseURI).href;
+            script.onload = function () {
+                const encoded = window.GHANA_GEOSTROPHIC_CHUNKS &&
+                    window.GHANA_GEOSTROPHIC_CHUNKS[chunkIndex];
+                if (typeof encoded !== "string") {
+                    reject(new Error("Missing Copernicus frame chunk " + chunkIndex));
+                    return;
+                }
+                geostrophicChunkValues.set(chunkIndex, decodeGeostrophicValues(encoded));
+                resolve();
+            };
+            script.onerror = function () {
+                reject(new Error("Could not load Copernicus frame chunk " + chunkIndex));
+            };
+            document.head.appendChild(script);
+        });
+        geostrophicChunkLoads.set(chunkIndex, promise);
+        return promise;
+    }
+
+    function loadGeostrophicFrames(frameIndices) {
+        if (geostrophicValues || !geostrophicTimeSeries.chunks) return Promise.resolve();
+        const chunkSize = geostrophicTimeSeries.chunk_size;
+        const chunkIndices = Array.from(new Set(frameIndices.map(function (frameIndex) {
+            return Math.floor(frameIndex / chunkSize);
+        })));
+        return Promise.all(chunkIndices.map(loadGeostrophicChunk));
+    }
+
+    function geostrophicValueAt(frameIndex, cellIndex, componentIndex) {
+        if (geostrophicValues) {
+            return geostrophicValues[(frameIndex * geostrophicCells.length + cellIndex) * 3 + componentIndex];
+        }
+        const chunkSize = geostrophicTimeSeries.chunk_size;
+        const chunkIndex = Math.floor(frameIndex / chunkSize);
+        const chunkValues = geostrophicChunkValues.get(chunkIndex);
+        if (!chunkValues) return null;
+        const frameOffset = (frameIndex % chunkSize) * geostrophicCells.length * 3;
+        return chunkValues[frameOffset + cellIndex * 3 + componentIndex];
+    }
+
     function makeGeostrophicRecords(date, frameIndices) {
         if (!geostrophicData) return [];
         const cellCount = geostrophicCells.length;
@@ -146,10 +200,9 @@
                 let speedTotal = 0;
                 let sampleCount = 0;
                 frameIndices.forEach(function (frameIndex) {
-                    const offset = (frameIndex * cellCount + index) * 3;
-                    const frameEastward = geostrophicValues[offset];
-                    const frameNorthward = geostrophicValues[offset + 1];
-                    const frameSpeed = geostrophicValues[offset + 2];
+                    const frameEastward = geostrophicValueAt(frameIndex, index, 0);
+                    const frameNorthward = geostrophicValueAt(frameIndex, index, 1);
+                    const frameSpeed = geostrophicValueAt(frameIndex, index, 2);
                     if (![frameEastward, frameNorthward, frameSpeed].every(Number.isFinite)) return;
                     eastwardTotal += frameEastward;
                     northwardTotal += frameNorthward;
@@ -207,8 +260,13 @@
         startInput.max = currentDates[currentDates.length - 1];
         endInput.min = currentDates[0];
         endInput.max = currentDates[currentDates.length - 1];
-        startInput.value = currentDates[0];
-        endInput.value = currentDates[currentDates.length - 1];
+        if (isGeostrophicVariable(selectedVariable)) {
+            startInput.value = currentDates[currentDates.length - 1];
+            endInput.value = currentDates[currentDates.length - 1];
+        } else {
+            startInput.value = currentDates[0];
+            endInput.value = currentDates[currentDates.length - 1];
+        }
     }
 
     function updateGeostrophicFrame() {
@@ -236,6 +294,18 @@
         selectedGeostrophicRecord = selectedId === null
             ? null
             : geostrophicRecords.find(function (record) { return record.id === selectedId; }) || null;
+        loadGeostrophicFrames(frameIndices).then(function () {
+            if (currentGeostrophicFrameKey !== frameKey) return;
+            geostrophicRecords = makeGeostrophicRecords(date, frameIndices);
+            geostrophicRecordByCoordinate = new Map(geostrophicRecords.map(function (record) {
+                return [record.latitude + "|" + record.longitude, record];
+            }));
+            render();
+        }).catch(function (error) {
+            console.error(error);
+            document.getElementById("geostrophic-status").textContent =
+                "Copernicus frame loading failed: " + error.message;
+        });
     }
 
     configureDateFilters();
@@ -407,8 +477,7 @@
             let count = 0;
             for (let cellIndex = 0; cellIndex < geostrophicCells.length; cellIndex += 1) {
                 if (!selectedIds.has(cellIndex)) continue;
-                const offset = (frameIndex * geostrophicCells.length + cellIndex) * 3 + variableIndex;
-                const value = geostrophicValues[offset];
+                const value = geostrophicValueAt(frameIndex, cellIndex, variableIndex);
                 if (!Number.isFinite(value)) continue;
                 total += value;
                 count += 1;

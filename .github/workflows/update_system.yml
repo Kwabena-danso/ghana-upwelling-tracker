@@ -112,6 +112,7 @@ jobs:
           path: |
             data/processed/geostrophic_velocity.nc
             data/processed/geostrophic_velocity.js
+            data/processed/geostrophic_velocity-chunks/**
           if-no-files-found: error
           retention-days: 14
 
@@ -130,6 +131,7 @@ jobs:
           mkdir -p site/data/processed
           cp index.html dashboard.css dashboard.js demo_data.js site/
           cp data/processed/geostrophic_velocity.js site/data/processed/
+          cp -R data/processed/geostrophic_velocity-chunks site/data/processed/
           touch site/.nojekyll
 
       - name: Upload GitHub Pages artifact

@@ -95,7 +95,7 @@ jobs:
           fi
 
       - name: Derive geostrophic velocity from sea-surface height
-        run: python -m ghana_upwelling.geostrophic --dashboard-max-time-steps 366
+        run: python -m ghana_upwelling.geostrophic
 
       - name: Save raw NetCDF files
         uses: actions/upload-artifact@v4

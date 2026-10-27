@@ -95,7 +95,7 @@ jobs:
           fi
 
       - name: Derive geostrophic velocity from sea-surface height
-        run: python -m ghana_upwelling.geostrophic
+        run: python -m ghana_upwelling.geostrophic --dashboard-max-time-steps 366
 
       - name: Save raw NetCDF files
         uses: actions/upload-artifact@v4
@@ -123,3 +123,31 @@ jobs:
           path: data/processed/quality_report.json
           if-no-files-found: error
           retention-days: 14
+
+      - name: Assemble GitHub Pages site
+        run: |
+          rm -rf site
+          mkdir -p site/data/processed
+          cp index.html dashboard.css dashboard.js demo_data.js site/
+          cp data/processed/geostrophic_velocity.js site/data/processed/
+          touch site/.nojekyll
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: download
+    if: needs.download.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy GitHub Pages site
+        id: deployment
+        uses: actions/deploy-pages@v4

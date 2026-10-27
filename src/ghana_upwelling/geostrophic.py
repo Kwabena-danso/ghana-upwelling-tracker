@@ -44,7 +44,24 @@ def _validate_monotonic_coordinate(values: Any, name: str, minimum_size: int = 3
         raise ValueError(f"Coordinate '{name}' must be strictly monotonic with no duplicate values.")
 
 
-def _write_dashboard_snapshot(dataset: Any, output_file: Path, stride: int) -> None:
+def _dashboard_time_indices(time_count: int, maximum: int | None) -> Any:
+    import numpy as np
+
+    if maximum is None or maximum >= time_count:
+        return np.arange(time_count, dtype=int)
+    if maximum < 1:
+        raise ValueError("--dashboard-max-time-steps must be at least 1.")
+    if maximum == 1:
+        return np.array([time_count - 1], dtype=int)
+    return np.unique(np.linspace(0, time_count - 1, num=maximum, dtype=int))
+
+
+def _write_dashboard_snapshot(
+    dataset: Any,
+    output_file: Path,
+    stride: int,
+    max_time_steps: int | None = None,
+) -> None:
     import numpy as np
 
     latitude_name = dataset.attrs["latitude_coordinate"]
@@ -90,6 +107,7 @@ def _write_dashboard_snapshot(dataset: Any, output_file: Path, stride: int) -> N
                 }
             )
 
+    time_indices = _dashboard_time_indices(field_values.shape[0], max_time_steps)
     latest_fields = field_values[-1]
     vectors = []
     for row in range(0, latitude.size, stride):
@@ -115,14 +133,34 @@ def _write_dashboard_snapshot(dataset: Any, output_file: Path, stride: int) -> N
 
     timestamps = []
     if "time" in dataset.coords and dataset.sizes.get("time", 0):
-        timestamps = [str(value).split("T", 1)[0] for value in dataset["time"].values]
+        all_timestamps = [str(value).split("T", 1)[0] for value in dataset["time"].values]
+        timestamps = [all_timestamps[index] for index in time_indices]
     if not timestamps:
         timestamps = [None]
-    packed_values = np.asarray(field_values[:, valid_grid, :], dtype="<f4").tobytes(order="C")
+    packed_values = np.asarray(
+        field_values[time_indices][:, valid_grid, :],
+        dtype="<f4",
+    ).tobytes(order="C")
     snapshot = {
         "date": timestamps[-1],
+        "source_time_steps": int(field_values.shape[0]),
+        "published_time_steps": len(timestamps),
+        "time_sampling": (
+            "All source time steps."
+            if len(timestamps) == field_values.shape[0]
+            else (
+                "Latest source time step only."
+                if len(timestamps) == 1
+                else "Evenly spaced source time steps including the first and latest values."
+            )
+        ),
         "method": "surface geostrophic velocity from SSH gradients",
         "citation": "Jacox et al. (2018), https://doi.org/10.1029/2018JC014187",
+        "source_dataset_id": dataset.attrs.get("source_dataset_id", ""),
+        "source_variable": dataset.attrs.get("source_variable", "zos"),
+        "source_variable_units": dataset.attrs.get("source_variable_units", ""),
+        "source_sea_level_reference": dataset.attrs.get("source_sea_level_reference", ""),
+        "velocity_equations": dataset.attrs.get("velocity_equations", ""),
         "interpretation": (
             "SSH-gradient velocity adaptation; not a CUTI or BEUTI calculation. "
             "Near-equatorial values are retained unless an explicit Coriolis threshold "
@@ -178,6 +216,7 @@ def derive_geostrophic_velocity(
     dashboard_file: Path | None = DEFAULT_DASHBOARD_FILE,
     minimum_absolute_coriolis: float = DEFAULT_MINIMUM_CORIOLIS,
     dashboard_stride: int = 8,
+    dashboard_max_time_steps: int | None = None,
 ) -> dict[str, Any]:
     """Write geostrophic velocity fields and a time-series dashboard snapshot."""
     import numpy as np
@@ -187,6 +226,8 @@ def derive_geostrophic_velocity(
         raise ValueError("--minimum-absolute-coriolis must be a non-negative finite value.")
     if dashboard_stride < 1:
         raise ValueError("--dashboard-stride must be at least 1.")
+    if dashboard_max_time_steps is not None and dashboard_max_time_steps < 1:
+        raise ValueError("--dashboard-max-time-steps must be at least 1.")
     if not input_file.is_file():
         raise ValueError(f"Sea-surface-height input file does not exist: {input_file}")
     output_paths = [input_file.resolve(), output_file.resolve()]
@@ -340,7 +381,12 @@ def derive_geostrophic_velocity(
             "method": "SSH-gradient surface geostrophic velocity; not CUTI/BEUTI",
         }
         if dashboard_file is not None:
-            _write_dashboard_snapshot(output, dashboard_file, dashboard_stride)
+            _write_dashboard_snapshot(
+                output,
+                dashboard_file,
+                dashboard_stride,
+                dashboard_max_time_steps,
+            )
         output.close()
         return summary
 
@@ -375,6 +421,15 @@ def build_parser() -> argparse.ArgumentParser:
         default=8,
         help="Keep every Nth latitude/longitude point in the dashboard vector overlay.",
     )
+    parser.add_argument(
+        "--dashboard-max-time-steps",
+        type=int,
+        default=None,
+        help=(
+            "Limit the dashboard snapshot to evenly spaced source time steps, including "
+            "the first and latest values when the bound allows; the NetCDF output remains complete."
+        ),
+    )
     return parser
 
 
@@ -387,6 +442,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.dashboard_output,
             args.minimum_absolute_coriolis,
             args.dashboard_stride,
+            args.dashboard_max_time_steps,
         )
     except (OSError, RuntimeError, ValueError) as error:
         print(f"Error: {error}", file=sys.stderr)

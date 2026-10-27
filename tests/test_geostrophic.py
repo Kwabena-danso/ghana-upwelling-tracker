@@ -141,6 +141,45 @@ class GeostrophicVelocityTests(unittest.TestCase):
 
         self.assertTrue(raw_file_unchanged)
 
+    def test_dashboard_snapshot_can_be_bounded_without_truncating_netcdf(self):
+        import json
+        import re
+        import xarray as xr
+
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            raw_file = root / "sea_surface_height.nc"
+            output_file = root / "derived.nc"
+            dashboard_file = root / "snapshot.js"
+            self._write_ssh_file(raw_file)
+
+            derive_geostrophic_velocity(
+                raw_file,
+                output_file,
+                dashboard_file,
+                dashboard_max_time_steps=1,
+            )
+
+            dashboard_script = dashboard_file.read_text(encoding="utf-8")
+            match = re.fullmatch(
+                r"window\.GHANA_GEOSTROPHIC_VELOCITY = (.*);\n",
+                dashboard_script,
+                flags=re.DOTALL,
+            )
+            dashboard_data = json.loads(match.group(1))
+            with xr.open_dataset(output_file) as result:
+                time_steps = result.sizes["time"]
+
+        self.assertEqual(time_steps, 2)
+        self.assertEqual(dashboard_data["source_time_steps"], 2)
+        self.assertEqual(dashboard_data["published_time_steps"], 1)
+        self.assertEqual(dashboard_data["time_sampling"], "Latest source time step only.")
+        self.assertEqual(
+            dashboard_data["velocity_equations"],
+            "u_g = -(g/f) * d(zos)/dy; v_g = (g/f) * d(zos)/dx",
+        )
+        self.assertEqual(dashboard_data["time_series"]["dates"], ["2024-01-02"])
+
     def test_explicit_coriolis_threshold_masks_weak_values(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)

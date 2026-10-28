@@ -773,7 +773,12 @@
         geostrophicLeafletMap = window.L.map("geostrophic-leaflet", {
             scrollWheelZoom: true,
             zoomControl: true,
-            preferCanvas: true
+            preferCanvas: true,
+            minZoom: 2,
+            maxZoom: 16,
+            zoomSnap: 0.25,
+            zoomDelta: 0.5,
+            wheelPxPerZoomLevel: 120
         });
         geostrophicLeafletMap.on("click", function (event) {
             const coordinate = { latitude: event.latlng.lat, longitude: event.latlng.lng };
@@ -975,7 +980,7 @@
                     [Math.min.apply(null, validLatitudes), Math.min.apply(null, validLongitudes)],
                     [Math.max.apply(null, validLatitudes), Math.max.apply(null, validLongitudes)]
                 ],
-                { padding: [24, 24], maxZoom: 7 }
+                { padding: [8, 8], maxZoom: 10 }
             );
             geostrophicMapHasFitBounds = true;
         }

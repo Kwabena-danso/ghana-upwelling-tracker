@@ -22,7 +22,7 @@ The study focus entirely on Ghana's Exclusive Economic Zone
 
 
 <p align="center">
-  <img src="images/Screenshot 2026-04-27 235124.png" alt="Ghana EEZ Study Area Map" width="550"/>
+  <img src="images/Study_Area_New.svg" alt="Ghana EEZ Study Area Map" width="550"/>
   <br>
   <em>Figure 2: Map of the study area along Ghana's Exclusive Economic Zone (EEZ) showing data collection nodes.</em>
 </p>
